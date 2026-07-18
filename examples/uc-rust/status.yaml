@@ -1,5 +1,0 @@
-phase: shadow-contract
-authoritative_apply_engine: uc-rust-legacy
-candidate_apply_engine: yukh
-migration_gate: pending
-unexplained_drift: unknown
