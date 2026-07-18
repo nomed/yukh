@@ -2,23 +2,22 @@
 
 ## Active issue
 
-- `#11 Implement first idempotent Project mutation`
-- Branch: `feat/issue-11-idempotent-mutation`
+- `#19 Implement relationship validation and reconciliation planning`
+- Branch: `feat/issue-19-relationship-planning`
 
 ## Implemented
 
-- Explicit dry-run mutation planning from desired and observed Project state.
-- Add-item operation when the issue is not yet present in the configured Project.
-- One-field mutation support for single-select, number and text Project fields.
-- Mapping validation before any write, including single-select option resolution.
-- No-op plans when observed state already matches desired state.
-- Sequential application so a newly created Project item ID feeds the field update.
-- Actionable diagnostics for permissions, unsupported mappings, missing IDs and API failures.
-- Retryable partial-failure result preserving successfully applied operations and the resolved item ID.
-- Automated tests covering missing item, drift, no-op, unsupported mapping, successful apply and partial failure.
+- Typed normalized relationship state for parent, children, depends-on and blocks.
+- Deterministic add/remove/no-op planning without GitHub mutations.
+- Repository-local reference validation and self-reference rejection.
+- Missing-reference, duplicate-node and ambiguous-parent diagnostics.
+- Reciprocal validation for parent/child and depends-on/blocks declarations.
+- Dependency-cycle and parent-cycle detection across the available graph.
+- Stable ordering for normalized lists, diagnostics and operations.
+- Automated tests covering normalization, no-op, creation, removal, missing references, ambiguity, conflicts and cycles.
 
 ## Deliberately deferred
 
-- Multi-field transactional reconciliation and richer retry orchestration remain under the Safe Reconciliation epic.
-- Native parent/child and dependency mutations remain in #12.
+- Applying native GitHub relationship mutations belongs to the next child issue under #12.
+- Remote graph discovery and pagination will be integrated with the GitHub adapter when mutation support is added.
 - GitHub Action runtime wiring remains in #6.
