@@ -2,6 +2,10 @@ import type { ContractDiagnostic } from "./contract.js";
 import type { GraphqlTransport, ProjectFieldDefinition } from "./project.js";
 
 export type SupportedProjectValue = string | number;
+export type FieldMutationValue =
+  | { singleSelectOptionId: string }
+  | { number: number }
+  | { text: string };
 
 export interface MutationTarget {
   projectId: string;
@@ -13,18 +17,14 @@ export interface MutationTarget {
 }
 
 export type ProjectMutationOperation =
-  | {
-      kind: "add_project_item";
-      projectId: string;
-      contentId: string;
-    }
+  | { kind: "add_project_item"; projectId: string; contentId: string }
   | {
       kind: "set_project_field";
       projectId: string;
       itemId?: string;
       fieldId: string;
       fieldName: string;
-      value: { singleSelectOptionId: string } | { number: number } | { text: string };
+      value: FieldMutationValue;
       desiredValue: SupportedProjectValue;
     };
 
@@ -55,7 +55,9 @@ interface AddItemResponse {
 }
 
 interface UpdateFieldResponse {
-  updateProjectV2ItemFieldValue?: { projectV2Item?: { id?: string | null } | null } | null;
+  updateProjectV2ItemFieldValue?: {
+    projectV2Item?: { id?: string | null } | null;
+  } | null;
 }
 
 const ADD_ITEM_MUTATION = `
@@ -84,36 +86,49 @@ function diagnostic(code: string, message: string, path: string): ContractDiagno
 function normalizeMutationError(error: unknown, path: string): ContractDiagnostic {
   const message = error instanceof Error ? error.message : String(error);
   const lower = message.toLowerCase();
-  if (lower.includes("resource not accessible") || lower.includes("forbidden") || lower.includes("permission")) {
+  if (
+    lower.includes("resource not accessible") ||
+    lower.includes("forbidden") ||
+    lower.includes("permission")
+  ) {
     return diagnostic(
       "project_mutation_permission_denied",
       "GitHub denied the Project mutation; verify project write permissions and token scopes",
       path,
     );
   }
-  return diagnostic("project_mutation_failed", `GitHub Project mutation failed: ${message}`, path);
-}
-
-function sameValue(left: SupportedProjectValue | undefined, right: SupportedProjectValue): boolean {
-  return left === right;
+  return diagnostic(
+    "project_mutation_failed",
+    `GitHub Project mutation failed: ${message}`,
+    path,
+  );
 }
 
 function resolveFieldValue(
   field: ProjectFieldDefinition,
   desiredValue: SupportedProjectValue,
-): { ok: true; value: ProjectMutationOperation & { kind: "set_project_field" }["value"] } | { ok: false; diagnostic: ContractDiagnostic } {
+): { ok: true; value: FieldMutationValue } | { ok: false; diagnostic: ContractDiagnostic } {
+  const path = `fields.${field.name}`;
   if (field.dataType === "SINGLE_SELECT") {
     if (typeof desiredValue !== "string") {
       return {
         ok: false,
-        diagnostic: diagnostic("unsupported_field_value", `Project field '${field.name}' requires a string option`, `fields.${field.name}`),
+        diagnostic: diagnostic(
+          "unsupported_field_value",
+          `Project field '${field.name}' requires a string option`,
+          path,
+        ),
       };
     }
     const option = field.options.find(({ name }) => name === desiredValue);
     if (!option) {
       return {
         ok: false,
-        diagnostic: diagnostic("unsupported_field_mapping", `Project field '${field.name}' has no option named '${desiredValue}'`, `fields.${field.name}`),
+        diagnostic: diagnostic(
+          "unsupported_field_mapping",
+          `Project field '${field.name}' has no option named '${desiredValue}'`,
+          path,
+        ),
       };
     }
     return { ok: true, value: { singleSelectOptionId: option.id } };
@@ -123,7 +138,11 @@ function resolveFieldValue(
     if (typeof desiredValue !== "number" || !Number.isFinite(desiredValue)) {
       return {
         ok: false,
-        diagnostic: diagnostic("unsupported_field_value", `Project field '${field.name}' requires a finite number`, `fields.${field.name}`),
+        diagnostic: diagnostic(
+          "unsupported_field_value",
+          `Project field '${field.name}' requires a finite number`,
+          path,
+        ),
       };
     }
     return { ok: true, value: { number: desiredValue } };
@@ -133,7 +152,11 @@ function resolveFieldValue(
     if (typeof desiredValue !== "string") {
       return {
         ok: false,
-        diagnostic: diagnostic("unsupported_field_value", `Project field '${field.name}' requires text`, `fields.${field.name}`),
+        diagnostic: diagnostic(
+          "unsupported_field_value",
+          `Project field '${field.name}' requires text`,
+          path,
+        ),
       };
     }
     return { ok: true, value: { text: desiredValue } };
@@ -144,16 +167,26 @@ function resolveFieldValue(
     diagnostic: diagnostic(
       "unsupported_project_field_type",
       `Project field '${field.name}' uses unsupported type '${field.dataType}'`,
-      `fields.${field.name}`,
+      path,
     ),
   };
 }
 
 export function planProjectMutation(target: MutationTarget): MutationPlanResult {
-  if (!target.projectId.trim() || !target.issueContentId.trim() || !target.field.id.trim()) {
+  if (
+    !target.projectId.trim() ||
+    !target.issueContentId.trim() ||
+    !target.field.id.trim()
+  ) {
     return {
       ok: false,
-      diagnostics: [diagnostic("invalid_mutation_target", "project, issue content and field identifiers are required", "mutation")],
+      diagnostics: [
+        diagnostic(
+          "invalid_mutation_target",
+          "project, issue content and field identifiers are required",
+          "mutation",
+        ),
+      ],
     };
   }
 
@@ -169,7 +202,7 @@ export function planProjectMutation(target: MutationTarget): MutationPlanResult 
     });
   }
 
-  if (!sameValue(target.observedValue, target.desiredValue)) {
+  if (target.observedValue !== target.desiredValue) {
     operations.push({
       kind: "set_project_field",
       projectId: target.projectId,
@@ -195,13 +228,19 @@ export class SafeProjectMutationAdapter {
     for (const operation of plan.operations) {
       if (operation.kind === "add_project_item") {
         try {
-          const response = await this.transport.execute<AddItemResponse>(ADD_ITEM_MUTATION, {
-            projectId: operation.projectId,
-            contentId: operation.contentId,
-          });
+          const response = await this.transport.execute<AddItemResponse>(
+            ADD_ITEM_MUTATION,
+            { projectId: operation.projectId, contentId: operation.contentId },
+          );
           const itemId = response.addProjectV2ItemById?.item?.id ?? undefined;
           if (!itemId) {
-            diagnostics.push(diagnostic("project_item_missing_after_add", "GitHub did not return the created Project item identifier", "projectItem"));
+            diagnostics.push(
+              diagnostic(
+                "project_item_missing_after_add",
+                "GitHub did not return the created Project item identifier",
+                "projectItem",
+              ),
+            );
             break;
           }
           resolvedItemId = itemId;
@@ -215,37 +254,54 @@ export class SafeProjectMutationAdapter {
 
       const itemId = operation.itemId ?? resolvedItemId;
       if (!itemId) {
-        diagnostics.push(diagnostic("project_item_id_unavailable", "Project field cannot be updated before an item identifier is available", `fields.${operation.fieldName}`));
+        diagnostics.push(
+          diagnostic(
+            "project_item_id_unavailable",
+            "Project field cannot be updated before an item identifier is available",
+            `fields.${operation.fieldName}`,
+          ),
+        );
         break;
       }
 
       try {
-        const response = await this.transport.execute<UpdateFieldResponse>(UPDATE_FIELD_MUTATION, {
-          projectId: operation.projectId,
-          itemId,
-          fieldId: operation.fieldId,
-          value: operation.value,
-        });
-        const updatedItemId = response.updateProjectV2ItemFieldValue?.projectV2Item?.id ?? undefined;
+        const response = await this.transport.execute<UpdateFieldResponse>(
+          UPDATE_FIELD_MUTATION,
+          {
+            projectId: operation.projectId,
+            itemId,
+            fieldId: operation.fieldId,
+            value: operation.value,
+          },
+        );
+        const updatedItemId =
+          response.updateProjectV2ItemFieldValue?.projectV2Item?.id ?? undefined;
         if (!updatedItemId) {
-          diagnostics.push(diagnostic("project_field_update_unconfirmed", `GitHub did not confirm the update of '${operation.fieldName}'`, `fields.${operation.fieldName}`));
+          diagnostics.push(
+            diagnostic(
+              "project_field_update_unconfirmed",
+              `GitHub did not confirm the update of '${operation.fieldName}'`,
+              `fields.${operation.fieldName}`,
+            ),
+          );
           break;
         }
         resolvedItemId = updatedItemId;
         applied.push({ operation: operation.kind, itemId: updatedItemId });
       } catch (error) {
-        diagnostics.push(normalizeMutationError(error, `fields.${operation.fieldName}`));
+        diagnostics.push(
+          normalizeMutationError(error, `fields.${operation.fieldName}`),
+        );
         break;
       }
     }
 
-    const result: MutationApplyResult = {
+    return {
       ok: diagnostics.length === 0,
       applied,
       diagnostics,
       retryable: diagnostics.length > 0,
       ...(resolvedItemId !== undefined ? { itemId: resolvedItemId } : {}),
     };
-    return result;
   }
 }
