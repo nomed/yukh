@@ -1,0 +1,86 @@
+schema_version: 1
+name: Yukh Project Intelligence Metamodel
+status: draft
+
+identity:
+  format: "yukh:<namespace>:<kind>:<local-id>"
+  guarantees:
+    - globally_stable
+    - never_reused
+    - projection_independent
+
+entity_kinds:
+  - Project
+  - Session
+  - KnowledgeEvent
+  - Decision
+  - Artifact
+  - Requirement
+  - Capability
+  - Issue
+  - Milestone
+  - Release
+  - Risk
+  - Evidence
+  - QualityAttribute
+  - EconomicUnit
+  - ExternalReference
+  - Projection
+
+relation_kinds:
+  - contains
+  - produced
+  - supersedes
+  - depends_on
+  - blocks
+  - implements
+  - governed_by
+  - evidenced_by
+  - validates
+  - traces_to
+  - belongs_to
+  - projects_to
+  - derived_from
+  - accepted_by
+
+knowledge_states:
+  - proposed
+  - accepted
+  - superseded
+  - rejected
+
+delivery_states:
+  - planned
+  - implemented
+  - enforced
+  - evidenced
+  - intentionally_divergent
+
+required_provenance:
+  - source
+  - recorded_at
+  - actor
+  - source_revision
+
+knowledge_event_kinds:
+  - SessionRecorded
+  - DecisionProposed
+  - DecisionAccepted
+  - DecisionSuperseded
+  - RequirementIntroduced
+  - CapabilityIntroduced
+  - IssuePlanned
+  - EvidenceRecorded
+  - RiskAccepted
+  - ProjectionRequested
+  - ProjectionObserved
+  - ProjectionDriftDetected
+
+invariants:
+  - Every entity has one stable identity.
+  - Every accepted decision has provenance and an accountable actor.
+  - Supersession does not delete historical knowledge.
+  - Evidenced requires at least one Evidence relation.
+  - External projection identity cannot replace Yukh identity.
+  - A projection failure cannot mutate accepted model history.
+  - Bidirectional adapters declare authority per field or relation.
