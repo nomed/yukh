@@ -166,6 +166,13 @@ function normalizeError(error: unknown): ContractDiagnostic {
       "project",
     );
   }
+  if (lower.includes("could not resolve to an organization") || lower.includes("could not resolve to a user")) {
+    return diagnostic(
+      "project_owner_not_found",
+      "GitHub could not resolve the configured Project owner login; verify the owner/account name for the Project",
+      "project",
+    );
+  }
   return diagnostic("project_api_error", `GitHub Project query failed: ${message}`, "project");
 }
 
