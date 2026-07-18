@@ -45,6 +45,8 @@ fields:
     type: number
     derived: false
     values: {}
+defaults:
+  execution: hybrid
 scheduling:
   automatic_iteration: false
 safety:
