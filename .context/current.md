@@ -2,23 +2,23 @@
 
 ## Active issue
 
-- `#27 Implement connected apply-mode GitHub Action runtime`
-- Branch: `feat/issue-27-connected-apply-runtime`
+- `#29 Implement versioned packaging and automated releases`
+- Branch: `feat/issue-29-versioned-packaging`
 
 ## Implemented
 
-- Authenticated GitHub GraphQL transport with explicit error handling.
-- Triggering issue resolution including issue body and node ID.
-- Connected Project discovery for identity, fields, options, iterations and observed item state.
-- Contract and policy validation followed by desired-state construction.
-- Deterministic complete multi-field planning shared by dry-run and apply.
-- Explicit apply gate requiring `mode=apply`, `apply_enabled=true`, and a token.
-- Sequential idempotent mutation execution with partial-failure and retry details.
-- Step Summary counts for planned, applied and remaining operations.
-- Reusable workflow token and permission guidance for repository, organization and user Projects.
-- Automated tests for transport, dry-run no-write, apply, repeated no-op, permissions and partial failure.
+- release-please configuration and manifest for semantic GitHub Releases.
+- Conventional Commit release flow and generated changelog foundation.
+- Package verification for all runtime files required by the composite action.
+- CI integration for type checking, tests, and package verification.
+- Immutable release-tag installation guidance.
+- Public/private repository Action settings and permission profiles.
+- Upgrade, rollback, compatibility, deprecation, removal, and troubleshooting guidance.
+- Minimal consumer policy and issue-contract examples.
 
-## Deliberately deferred
+## Next
 
-- Marketplace publication, immutable version tags and first UC Rust adoption remain in #13.
-- Cross-repository relationships and architecture-record semantics remain out of scope.
+- Merge the implementation PR.
+- Merge the generated release-please PR to create the first verified release.
+- Complete #30 by dogfooding the pinned release on Yukh itself.
+- Use UC Rust as the first external adopter under `nomed/uc-rust#69`.
