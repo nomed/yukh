@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildStepSummary, runActionRuntime, validateRuntimeInput } from "../src/runtime.js";
 
-const issueBody = `# Runtime\n\n<!-- yukh\nschema: 1\nkind: feature\narea: platform\npriority: p1\nsize: m\nestimate: 3\n-->`;
+const issueBody = `# Runtime\n\n<!-- yukh\nschema: 1\nkind: feature\narea: platform\npriority: P1\nsize: M\nestimate: 3\n-->`;
 
 const policySource = `version: 1
 project:
@@ -29,13 +29,13 @@ fields:
     required: true
     type: string
     derived: false
-    values: { p1: P1 }
+    values: { P1: P1 }
   size:
     project_field: Size
     required: false
     type: string
     derived: false
-    values: { m: M }
+    values: { M: M }
   estimate:
     project_field: Estimate
     required: false
