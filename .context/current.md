@@ -2,21 +2,20 @@
 
 ## Active issue
 
-- `#3 Implement policy loader and desired-state builder`
-- Branch: `feat/issue-3-policy-loader`
+- `#9 Implement read-only reconciliation report`
+- Branch: `feat/issue-9-read-only-report`
 
 ## Implemented
 
-- Versioned `.yukh/project.yaml` policy with executable field mappings.
-- Typed policy model independent from GitHub API access.
-- YAML loading with duplicate-key rejection and actionable diagnostics.
-- Validation for project identity, contract schema, supported fields, mappings, defaults, scheduling and safety flags.
-- Deterministic desired Project state generation from a normalized issue contract.
-- Required-field enforcement and policy-specific value validation.
-- Milestone mapping, execution defaults and explicit/automatic iteration intent.
-- Relationship preservation for parent, children, dependencies and blocks.
-- Automated tests for valid policy, malformed policy, invalid mappings, defaults, required values and deterministic UC Rust desired state.
+- End-to-end read-only pipeline: issue contract parsing, policy loading, desired-state generation and observed-state comparison.
+- Versioned deterministic JSON report schema.
+- Concise human-readable summaries for no-op, drift, warning and error outcomes.
+- Stable ordering for diagnostics, fields, relationships and differences.
+- Explicit planned-change records without any GitHub mutation capability.
+- Preservation warnings for unmanaged or human-owned Project fields.
+- CLI command accepting issue Markdown, policy YAML and optional observed-state JSON.
+- Automated tests covering no-op, drift, warnings, invalid contract, invalid policy, stable serialization and relationship normalization.
 
 ## Deliberately deferred
 
-Observed GitHub Project state, Project/field discovery, remote iteration lookup, issue existence, dependency graph checks and all mutations belong to the Project adapter and reconciliation issues.
+Observed state is supplied as normalized JSON in this issue. Live GitHub Project discovery and field reading belong to #10; mutations belong to #11 and relationship application belongs to #12.
