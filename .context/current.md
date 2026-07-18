@@ -2,21 +2,21 @@
 
 ## Active issue
 
-- `#2 Implement issue contract parser and validator`
-- Branch: `feat/issue-2-contract-parser`
+- `#3 Implement policy loader and desired-state builder`
+- Branch: `feat/issue-3-policy-loader`
 
 ## Implemented
 
-- TypeScript contract model and public parser API.
-- Exact hidden-block discovery for `<!-- yukh ... -->`.
-- Missing, duplicated and unterminated contract diagnostics.
-- YAML parsing with duplicate-key rejection.
-- Required-key, schema, type, execution-mode and unknown-key validation.
-- `x-` extension preservation.
-- Deterministic normalization of relationship lists.
-- Self-reference validation when the current issue number is available.
-- Eleven automated tests covering valid and invalid contracts.
+- Versioned `.yukh/project.yaml` policy with executable field mappings.
+- Typed policy model independent from GitHub API access.
+- YAML loading with duplicate-key rejection and actionable diagnostics.
+- Validation for project identity, contract schema, supported fields, mappings, defaults, scheduling and safety flags.
+- Deterministic desired Project state generation from a normalized issue contract.
+- Required-field enforcement and policy-specific value validation.
+- Milestone mapping, execution defaults and explicit/automatic iteration intent.
+- Relationship preservation for parent, children, dependencies and blocks.
+- Automated tests for valid policy, malformed policy, invalid mappings, defaults, required values and deterministic UC Rust desired state.
 
 ## Deliberately deferred
 
-Policy-specific allowed values, graph cycles, remote issue existence and Project iteration lookup belong to later policy and GitHub adapter work. The parser exposes normalized data and diagnostics for those layers.
+Observed GitHub Project state, Project/field discovery, remote iteration lookup, issue existence, dependency graph checks and all mutations belong to the Project adapter and reconciliation issues.
