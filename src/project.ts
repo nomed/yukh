@@ -107,11 +107,7 @@ interface ProjectResponse {
   user?: { projectV2: ProjectNode | null } | null;
 }
 
-const PROJECT_QUERY = `
-query DiscoverProject($owner: String!, $number: Int!, $fieldsCursor: String, $itemsCursor: String) {
-  organization(login: $owner) { projectV2(number: $number) { ...ProjectData } }
-  user(login: $owner) { projectV2(number: $number) { ...ProjectData } }
-}
+const PROJECT_DATA_FRAGMENT = `
 fragment ProjectData on ProjectV2 {
   id number title
   fields(first: 50, after: $fieldsCursor) {
@@ -150,6 +146,20 @@ fragment ProjectData on ProjectV2 {
     pageInfo { hasNextPage endCursor }
   }
 }
+`;
+
+const ORGANIZATION_PROJECT_QUERY = `
+query DiscoverOrganizationProject($owner: String!, $number: Int!, $fieldsCursor: String, $itemsCursor: String) {
+  organization(login: $owner) { projectV2(number: $number) { ...ProjectData } }
+}
+${PROJECT_DATA_FRAGMENT}
+`;
+
+const USER_PROJECT_QUERY = `
+query DiscoverUserProject($owner: String!, $number: Int!, $fieldsCursor: String, $itemsCursor: String) {
+  user(login: $owner) { projectV2(number: $number) { ...ProjectData } }
+}
+${PROJECT_DATA_FRAGMENT}
 `;
 
 function diagnostic(code: string, message: string, path: string): ContractDiagnostic {
@@ -247,64 +257,53 @@ function validInput(input: DiscoverProjectInput): boolean {
   );
 }
 
+function queryOwnerKind(error: unknown): "organization" | "user" | null {
+  const message = error instanceof Error ? error.message : String(error);
+  const lower = message.toLowerCase();
+  if (lower.includes("could not resolve to an organization")) return "organization";
+  if (lower.includes("could not resolve to a user")) return "user";
+  return null;
+}
+
 export class ReadOnlyProjectAdapter {
   constructor(private readonly transport: GraphqlTransport) {}
 
-  async discover(input: DiscoverProjectInput): Promise<ProjectDiscoveryResult> {
-    if (!validInput(input)) {
-      return {
-        ok: false,
-        diagnostics: [diagnostic(
-          "invalid_project_input",
-          "owner, owner/repository, positive project number and positive issue number are required",
-          "project",
-        )],
-      };
-    }
-
+  private async discoverWithQuery(
+    query: string,
+    input: DiscoverProjectInput,
+  ): Promise<ProjectDiscoveryResult> {
     const fieldNodes: Array<RawField | null> = [];
     const itemNodes: RawItem[] = [];
     let fieldsCursor: string | null = null;
     let itemsCursor: string | null = null;
     let project: ProjectNode | null = null;
 
-    try {
-      do {
-        const response: ProjectResponse = await this.transport.execute<ProjectResponse>(PROJECT_QUERY, {
-          owner: input.owner,
-          number: input.projectNumber,
-          fieldsCursor,
-          itemsCursor,
-        });
-        const pageProject: ProjectNode | null =
-          response.organization?.projectV2 ?? response.user?.projectV2 ?? null;
-        if (!pageProject) {
-          return {
-            ok: false,
-            diagnostics: [diagnostic(
-              "project_not_found",
-              `Project #${input.projectNumber} was not found for '${input.owner}'`,
-              "project",
-            )],
-          };
-        }
+    do {
+      const response: ProjectResponse = await this.transport.execute<ProjectResponse>(query, {
+        owner: input.owner,
+        number: input.projectNumber,
+        fieldsCursor,
+        itemsCursor,
+      });
+      const pageProject: ProjectNode | null =
+        response.organization?.projectV2 ?? response.user?.projectV2 ?? null;
+      if (!pageProject) {
+        return {
+          ok: false,
+          diagnostics: [diagnostic(
+            "project_not_found",
+            `Project #${input.projectNumber} was not found for '${input.owner}'`,
+            "project",
+          )],
+        };
+      }
 
-        project ??= pageProject;
-        fieldNodes.push(...pageProject.fields.nodes);
-        for (const item of pageProject.items.nodes) if (item) itemNodes.push(item);
-        fieldsCursor = pageProject.fields.pageInfo.hasNextPage ? pageProject.fields.pageInfo.endCursor : null;
-        itemsCursor = pageProject.items.pageInfo.hasNextPage ? pageProject.items.pageInfo.endCursor : null;
-      } while (fieldsCursor !== null || itemsCursor !== null);
-    } catch (error) {
-      return { ok: false, diagnostics: [normalizeError(error)] };
-    }
-
-    if (!project) {
-      return {
-        ok: false,
-        diagnostics: [diagnostic("project_not_found", "configured Project could not be resolved", "project")],
-      };
-    }
+      project ??= pageProject;
+      fieldNodes.push(...pageProject.fields.nodes);
+      for (const item of pageProject.items.nodes) if (item) itemNodes.push(item);
+      fieldsCursor = pageProject.fields.pageInfo.hasNextPage ? pageProject.fields.pageInfo.endCursor : null;
+      itemsCursor = pageProject.items.pageInfo.hasNextPage ? pageProject.items.pageInfo.endCursor : null;
+    } while (fieldsCursor !== null || itemsCursor !== null);
 
     const issueItem = normalizeIssueItem(itemNodes, input.repository, input.issueNumber);
     return {
@@ -321,5 +320,32 @@ export class ReadOnlyProjectAdapter {
         },
       },
     };
+  }
+
+  async discover(input: DiscoverProjectInput): Promise<ProjectDiscoveryResult> {
+    if (!validInput(input)) {
+      return {
+        ok: false,
+        diagnostics: [diagnostic(
+          "invalid_project_input",
+          "owner, owner/repository, positive project number and positive issue number are required",
+          "project",
+        )],
+      };
+    }
+
+    try {
+      return await this.discoverWithQuery(ORGANIZATION_PROJECT_QUERY, input);
+    } catch (error) {
+      if (queryOwnerKind(error) !== "organization") {
+        return { ok: false, diagnostics: [normalizeError(error)] };
+      }
+    }
+
+    try {
+      return await this.discoverWithQuery(USER_PROJECT_QUERY, input);
+    } catch (error) {
+      return { ok: false, diagnostics: [normalizeError(error)] };
+    }
   }
 }
