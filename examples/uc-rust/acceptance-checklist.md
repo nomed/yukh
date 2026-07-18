@@ -1,12 +1,14 @@
-# Acceptance checklist
+# UC Rust adoption checklist
 
-- [ ] Contract fixtures captured
-- [ ] Read-only drift engine implemented
-- [ ] Repository metadata comparison implemented
-- [ ] Project v2 comparison implemented
-- [ ] Native relationships comparison implemented
-- [ ] Sandbox reconciliation is idempotent
-- [ ] Partial failures are explicit
-- [ ] Zero unexplained UC Rust drift
-- [ ] Rollback evidence exists
-- [ ] Yukh and UC Rust accept migration
+- [ ] Yukh immutable release selected
+- [ ] Repository policy copied and adapted
+- [ ] Dry-run workflow installed
+- [ ] Apply workflow installed with dedicated token
+- [ ] Representative issue contracts validate
+- [ ] First controlled apply succeeds
+- [ ] Repeated identical apply performs zero writes
+- [ ] Human-owned values are preserved
+- [ ] Permission failure is explicit
+- [ ] Partial failure is safely retryable
+- [ ] Rollback and removal are documented
+- [ ] Evidence and acceptance are recorded in `nomed/uc-rust#69`
