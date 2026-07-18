@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import type { ObservedProjectState } from "./report.js";
 import { buildReadOnlyReport, renderHumanReport, serializeReport } from "./report.js";
 
 async function main(): Promise<void> {
@@ -22,7 +23,9 @@ async function main(): Promise<void> {
     const report = buildReadOnlyReport({
       issueBody,
       policySource,
-      ...(observed !== undefined ? { observed } : {}),
+      ...(observed !== undefined
+        ? { observed: observed as Partial<ObservedProjectState> }
+        : {}),
       artifact: issuePath,
     });
     console.log(renderHumanReport(report));
