@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/nomed/yukh/model/schemas/relation.schema.json",
+  "title": "Yukh Relation",
+  "type": "object",
+  "required": ["id", "kind", "from", "to", "recorded_at", "actor", "source", "source_revision"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^yukh:[a-z0-9._-]+:relation:[A-Za-z0-9._:-]+$"},
+    "kind": {"type": "string", "minLength": 1},
+    "from": {"type": "string", "minLength": 1},
+    "to": {"type": "string", "minLength": 1},
+    "attributes": {"type": "object", "additionalProperties": true},
+    "recorded_at": {"type": "string", "format": "date-time"},
+    "valid_from": {"type": "string", "format": "date-time"},
+    "valid_to": {"type": ["string", "null"], "format": "date-time"},
+    "actor": {"type": "string", "minLength": 1},
+    "source": {"type": "string", "minLength": 1},
+    "source_revision": {"type": "string", "minLength": 1}
+  },
+  "additionalProperties": false
+}
