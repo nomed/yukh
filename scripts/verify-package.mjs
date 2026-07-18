@@ -3,7 +3,6 @@ import { access, readFile } from "node:fs/promises";
 const required = [
   "action.yml",
   "package.json",
-  "package-lock.json",
   "src/action-cli.ts",
   "src/connected-runtime.ts",
   "src/runtime.ts",
