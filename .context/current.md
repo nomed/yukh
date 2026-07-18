@@ -2,22 +2,23 @@
 
 ## Active issue
 
-- `#10 Implement read-only Project discovery and observed state`
-- Branch: `feat/issue-10-project-discovery`
+- `#11 Implement first idempotent Project mutation`
+- Branch: `feat/issue-11-idempotent-mutation`
 
 ## Implemented
 
-- Read-only GitHub Project v2 adapter behind an injected GraphQL transport.
-- Project resolution for organization-owned and user-owned Projects.
-- Normalized Project identity, field definitions, single-select options and iterations.
-- Paginated Project field and item discovery.
-- Current issue item lookup by repository and issue number.
-- Deterministic normalization of text, number, single-select and iteration field values.
-- Explicit distinction between a missing Project item and a missing Project.
-- Actionable diagnostics for invalid input, missing resources, permission failures and API failures.
-- Observed state compatible with the existing read-only reconciliation report.
-- Automated tests covering supported discovery, pagination, missing items, user Projects and failures.
+- Explicit dry-run mutation planning from desired and observed Project state.
+- Add-item operation when the issue is not yet present in the configured Project.
+- One-field mutation support for single-select, number and text Project fields.
+- Mapping validation before any write, including single-select option resolution.
+- No-op plans when observed state already matches desired state.
+- Sequential application so a newly created Project item ID feeds the field update.
+- Actionable diagnostics for permissions, unsupported mappings, missing IDs and API failures.
+- Retryable partial-failure result preserving successfully applied operations and the resolved item ID.
+- Automated tests covering missing item, drift, no-op, unsupported mapping, successful apply and partial failure.
 
 ## Deliberately deferred
 
-The adapter performs no mutations. Adding Project items and setting fields belong to #11. Native parent/child and dependency observation and reconciliation remain in #12.
+- Multi-field transactional reconciliation and richer retry orchestration remain under the Safe Reconciliation epic.
+- Native parent/child and dependency mutations remain in #12.
+- GitHub Action runtime wiring remains in #6.
