@@ -60,71 +60,46 @@ interface PageInfo {
   endCursor: string | null;
 }
 
+interface RawField {
+  __typename: string;
+  id: string;
+  name: string;
+  dataType: string;
+  options?: ProjectFieldOption[];
+  configuration?: {
+    iterations?: ProjectIteration[];
+    completedIterations?: ProjectIteration[];
+  };
+}
+
+interface RawFieldValue {
+  __typename: string;
+  text?: string;
+  number?: number;
+  name?: string;
+  title?: string;
+  field?: { name?: string } | null;
+}
+
+interface RawItem {
+  id: string;
+  content: null | {
+    __typename: string;
+    number?: number;
+    repository?: { nameWithOwner?: string } | null;
+  };
+  fieldValues: {
+    nodes: Array<RawFieldValue | null>;
+    pageInfo: PageInfo;
+  };
+}
+
 interface ProjectNode {
   id: string;
   number: number;
   title: string;
-  fields: {
-    nodes: Array<
-      | {
-          __typename: "ProjectV2Field";
-          id: string;
-          name: string;
-          dataType: string;
-        }
-      | {
-          __typename: "ProjectV2SingleSelectField";
-          id: string;
-          name: string;
-          dataType: string;
-          options: Array<{ id: string; name: string }>;
-        }
-      | {
-          __typename: "ProjectV2IterationField";
-          id: string;
-          name: string;
-          dataType: string;
-          configuration: {
-            iterations: Array<{
-              id: string;
-              title: string;
-              startDate: string;
-              duration: number;
-            }>;
-            completedIterations: Array<{
-              id: string;
-              title: string;
-              startDate: string;
-              duration: number;
-            }>;
-          };
-        }
-      | null
-    >;
-    pageInfo: PageInfo;
-  };
-  items: {
-    nodes: Array<{
-      id: string;
-      content: null | {
-        __typename: string;
-        number?: number;
-        repository?: { nameWithOwner: string };
-      };
-      fieldValues: {
-        nodes: Array<
-          | { __typename: "ProjectV2ItemFieldTextValue"; text: string; field?: { name: string } }
-          | { __typename: "ProjectV2ItemFieldNumberValue"; number: number; field?: { name: string } }
-          | { __typename: "ProjectV2ItemFieldSingleSelectValue"; name: string; field?: { name: string } }
-          | { __typename: "ProjectV2ItemFieldIterationValue"; title: string; field?: { name: string } }
-          | { __typename: string; field?: { name: string } }
-          | null
-        >;
-        pageInfo: PageInfo;
-      };
-    } | null>;
-    pageInfo: PageInfo;
-  };
+  fields: { nodes: Array<RawField | null>; pageInfo: PageInfo };
+  items: { nodes: Array<RawItem | null>; pageInfo: PageInfo };
 }
 
 interface ProjectResponse {
@@ -134,21 +109,11 @@ interface ProjectResponse {
 
 const PROJECT_QUERY = `
 query DiscoverProject($owner: String!, $number: Int!, $fieldsCursor: String, $itemsCursor: String) {
-  organization(login: $owner) {
-    projectV2(number: $number) {
-      ...ProjectData
-    }
-  }
-  user(login: $owner) {
-    projectV2(number: $number) {
-      ...ProjectData
-    }
-  }
+  organization(login: $owner) { projectV2(number: $number) { ...ProjectData } }
+  user(login: $owner) { projectV2(number: $number) { ...ProjectData } }
 }
 fragment ProjectData on ProjectV2 {
-  id
-  number
-  title
+  id number title
   fields(first: 50, after: $fieldsCursor) {
     nodes {
       __typename
@@ -204,35 +169,34 @@ function normalizeError(error: unknown): ContractDiagnostic {
   return diagnostic("project_api_error", `GitHub Project query failed: ${message}`, "project");
 }
 
-function normalizeFields(nodes: ProjectNode["fields"]["nodes"]): ProjectFieldDefinition[] {
-  const fields: ProjectFieldDefinition[] = [];
+function normalizeFields(nodes: Array<RawField | null>): ProjectFieldDefinition[] {
+  const byId = new Map<string, ProjectFieldDefinition>();
   for (const node of nodes) {
     if (!node) continue;
-    const options = node.__typename === "ProjectV2SingleSelectField"
-      ? [...node.options].sort((a, b) => a.name.localeCompare(b.name))
-      : [];
-    const iterations = node.__typename === "ProjectV2IterationField"
-      ? [...node.configuration.iterations, ...node.configuration.completedIterations]
-          .filter((iteration, index, all) => all.findIndex(({ id }) => id === iteration.id) === index)
-          .sort((a, b) => a.startDate.localeCompare(b.startDate) || a.title.localeCompare(b.title))
-      : [];
-    fields.push({ id: node.id, name: node.name, dataType: node.dataType, options, iterations });
+    const options = [...(node.options ?? [])].sort((a, b) => a.name.localeCompare(b.name));
+    const allIterations = [
+      ...(node.configuration?.iterations ?? []),
+      ...(node.configuration?.completedIterations ?? []),
+    ];
+    const iterationById = new Map(allIterations.map((iteration) => [iteration.id, iteration]));
+    const iterations = [...iterationById.values()].sort(
+      (a, b) => a.startDate.localeCompare(b.startDate) || a.title.localeCompare(b.title),
+    );
+    byId.set(node.id, { id: node.id, name: node.name, dataType: node.dataType, options, iterations });
   }
-  return fields.sort((a, b) => a.name.localeCompare(b.name));
+  return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
-function fieldValue(value: NonNullable<NonNullable<ProjectNode["items"]["nodes"][number]>["fieldValues"]["nodes"][number]>): string | number | undefined {
-  switch (value.__typename) {
-    case "ProjectV2ItemFieldTextValue": return value.text;
-    case "ProjectV2ItemFieldNumberValue": return value.number;
-    case "ProjectV2ItemFieldSingleSelectValue": return value.name;
-    case "ProjectV2ItemFieldIterationValue": return value.title;
-    default: return undefined;
-  }
+function fieldValue(value: RawFieldValue): string | number | undefined {
+  if (value.__typename === "ProjectV2ItemFieldTextValue" && typeof value.text === "string") return value.text;
+  if (value.__typename === "ProjectV2ItemFieldNumberValue" && typeof value.number === "number") return value.number;
+  if (value.__typename === "ProjectV2ItemFieldSingleSelectValue" && typeof value.name === "string") return value.name;
+  if (value.__typename === "ProjectV2ItemFieldIterationValue" && typeof value.title === "string") return value.title;
+  return undefined;
 }
 
 function normalizeIssueItem(
-  items: Array<NonNullable<ProjectNode["items"]["nodes"][number]>>,
+  items: RawItem[],
   repository: string,
   issueNumber: number,
 ): DiscoveredProjectState["issueItem"] {
@@ -240,19 +204,23 @@ function normalizeIssueItem(
   const item = items.find(({ content }) =>
     content?.__typename === "Issue" &&
     content.number === issueNumber &&
-    content.repository?.nameWithOwner.toLowerCase() === expectedRepository,
+    content.repository?.nameWithOwner?.toLowerCase() === expectedRepository,
   );
   if (!item) return { present: false, values: {} };
 
   const values: Record<string, string | number> = {};
   let iteration: string | undefined;
   for (const node of item.fieldValues.nodes) {
-    if (!node?.field?.name) continue;
+    const fieldName = node?.field?.name;
+    if (!node || !fieldName) continue;
     const normalized = fieldValue(node);
     if (normalized === undefined) continue;
-    values[node.field.name] = normalized;
-    if (node.__typename === "ProjectV2ItemFieldIterationValue") iteration = node.title;
+    values[fieldName] = normalized;
+    if (node.__typename === "ProjectV2ItemFieldIterationValue" && typeof node.title === "string") {
+      iteration = node.title;
+    }
   }
+
   return {
     present: true,
     id: item.id,
@@ -261,19 +229,34 @@ function normalizeIssueItem(
   };
 }
 
+function validInput(input: DiscoverProjectInput): boolean {
+  return Boolean(
+    input.owner.trim() &&
+    input.repository.includes("/") &&
+    Number.isInteger(input.projectNumber) &&
+    input.projectNumber > 0 &&
+    Number.isInteger(input.issueNumber) &&
+    input.issueNumber > 0,
+  );
+}
+
 export class ReadOnlyProjectAdapter {
   constructor(private readonly transport: GraphqlTransport) {}
 
   async discover(input: DiscoverProjectInput): Promise<ProjectDiscoveryResult> {
-    if (!input.owner.trim() || !input.repository.includes("/") || !Number.isInteger(input.projectNumber) || input.projectNumber <= 0 || !Number.isInteger(input.issueNumber) || input.issueNumber <= 0) {
+    if (!validInput(input)) {
       return {
         ok: false,
-        diagnostics: [diagnostic("invalid_project_input", "owner, owner/repository, positive project number and positive issue number are required", "project")],
+        diagnostics: [diagnostic(
+          "invalid_project_input",
+          "owner, owner/repository, positive project number and positive issue number are required",
+          "project",
+        )],
       };
     }
 
-    const fieldNodes: ProjectNode["fields"]["nodes"] = [];
-    const itemNodes: Array<NonNullable<ProjectNode["items"]["nodes"][number]>> = [];
+    const fieldNodes: Array<RawField | null> = [];
+    const itemNodes: RawItem[] = [];
     let fieldsCursor: string | null = null;
     let itemsCursor: string | null = null;
     let project: ProjectNode | null = null;
@@ -290,12 +273,17 @@ export class ReadOnlyProjectAdapter {
         if (!pageProject) {
           return {
             ok: false,
-            diagnostics: [diagnostic("project_not_found", `Project #${input.projectNumber} was not found for '${input.owner}'`, "project")],
+            diagnostics: [diagnostic(
+              "project_not_found",
+              `Project #${input.projectNumber} was not found for '${input.owner}'`,
+              "project",
+            )],
           };
         }
+
         project ??= pageProject;
         fieldNodes.push(...pageProject.fields.nodes);
-        itemNodes.push(...pageProject.items.nodes.filter((item): item is NonNullable<typeof item> => item !== null));
+        for (const item of pageProject.items.nodes) if (item) itemNodes.push(item);
         fieldsCursor = pageProject.fields.pageInfo.hasNextPage ? pageProject.fields.pageInfo.endCursor : null;
         itemsCursor = pageProject.items.pageInfo.hasNextPage ? pageProject.items.pageInfo.endCursor : null;
       } while (fieldsCursor !== null || itemsCursor !== null);
@@ -304,7 +292,10 @@ export class ReadOnlyProjectAdapter {
     }
 
     if (!project) {
-      return { ok: false, diagnostics: [diagnostic("project_not_found", "configured Project could not be resolved", "project")] };
+      return {
+        ok: false,
+        diagnostics: [diagnostic("project_not_found", "configured Project could not be resolved", "project")],
+      };
     }
 
     const issueItem = normalizeIssueItem(itemNodes, input.repository, input.issueNumber);
