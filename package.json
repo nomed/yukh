@@ -3,10 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "description": "Policy-driven GitHub Project reconciliation for agentic repositories",
   "scripts": {
     "report": "tsx src/cli.ts",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "verify:package": "node scripts/verify-package.mjs",
+    "ci": "npm run typecheck && npm test && npm run verify:package"
   },
   "dependencies": {
     "yaml": "^2.8.1"
