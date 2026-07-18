@@ -7,6 +7,10 @@ on:
         description: Issue number to reconcile
         type: number
         required: true
+      project_number:
+        description: "GitHub Project number (overrides the YUKH_PROJECT_NUMBER repository variable)"
+        type: number
+        required: false
       confirm_apply:
         description: Confirm Project mutations
         type: boolean
@@ -30,7 +34,7 @@ jobs:
       - uses: nomed/yukh@v0.1.0
         with:
           issue-number: ${{ inputs.issue_number }}
-          project-number: ${{ vars.YUKH_PROJECT_NUMBER }}
+          project-number: ${{ inputs.project_number || vars.YUKH_PROJECT_NUMBER }}
           policy-path: .yukh/project.yaml
           mode: apply
           apply-enabled: true
