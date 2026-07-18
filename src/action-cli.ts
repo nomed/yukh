@@ -22,16 +22,17 @@ async function main(): Promise<void> {
     const projectNumber = process.env.INPUT_PROJECT_NUMBER || event.inputs?.project_number;
     const repository = process.env.GITHUB_REPOSITORY || event.repository?.full_name;
     const mode = process.env.INPUT_MODE || event.inputs?.mode || "dry-run";
+    const applyEnabled = process.env.INPUT_APPLY_ENABLED;
 
     const outcome = runActionRuntime({
-      repository,
-      issueNumber,
-      projectNumber,
+      ...(repository !== undefined ? { repository } : {}),
+      ...(issueNumber !== undefined ? { issueNumber } : {}),
+      ...(projectNumber !== undefined ? { projectNumber } : {}),
       mode,
       policyPath,
       issueBody,
       policySource,
-      applyEnabled: process.env.INPUT_APPLY_ENABLED,
+      ...(applyEnabled !== undefined ? { applyEnabled } : {}),
       tokenAvailable: Boolean(process.env.GITHUB_TOKEN),
     });
 
