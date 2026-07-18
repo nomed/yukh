@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: nomed/yukh@v0.2.0 # x-release-please-version
+      - uses: ./
         with:
           issue-number: ${{ inputs.issue_number }}
           project-number: ${{ inputs.project_number || vars.YUKH_PROJECT_NUMBER }}
