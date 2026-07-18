@@ -15,33 +15,23 @@ fields:
   kind:
     project_field: Type
     required: true
-    type: string
-    derived: false
     values: { feature: Feature }
   area:
     project_field: Area
     required: true
-    type: string
-    derived: false
-    values: {}
+    values: { platform: Platform }
   priority:
     project_field: Priority
     required: true
-    type: string
-    derived: false
     values: { P1: P1 }
   size:
     project_field: Size
     required: false
-    type: string
-    derived: false
     values: { M: M }
   estimate:
     project_field: Estimate
     required: false
     type: number
-    derived: false
-    values: {}
 scheduling:
   automatic_iteration: false
 safety:
@@ -79,7 +69,7 @@ describe("GitHub Action runtime", () => {
   it("produces deterministic read-only reports and summaries", () => {
     const first = runActionRuntime(validInput);
     const second = runActionRuntime(validInput);
-    expect(first.ok).toBe(true);
+    expect(first.ok, JSON.stringify(first)).toBe(true);
     expect(first.json).toBe(second.json);
     expect(first.summary).toBe(second.summary);
     expect(first.summary).toContain("**Issue:** nomed/yukh#25");
@@ -98,11 +88,11 @@ describe("GitHub Action runtime", () => {
       ...validInput,
       observed: {
         projectItemPresent: true,
-        fields: { Area: "platform", Estimate: 3, Priority: "P1", Size: "M", Type: "Feature" },
+        fields: { Area: "Platform", Estimate: 3, Priority: "P1", Size: "M", Type: "Feature" },
         relationships: { children: [], dependsOn: [], blocks: [] },
       },
     });
-    expect(result.ok).toBe(true);
+    expect(result.ok, JSON.stringify(result)).toBe(true);
     if (!result.report) throw new Error("report required");
     expect(buildStepSummary(result.report, "nomed/yukh", 25)).toContain("No drift detected.");
   });
