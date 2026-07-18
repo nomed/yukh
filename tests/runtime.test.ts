@@ -32,6 +32,8 @@ fields:
     project_field: Estimate
     required: false
     type: number
+defaults:
+  execution: hybrid
 scheduling:
   automatic_iteration: false
 safety:
