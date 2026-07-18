@@ -6,7 +6,8 @@
   "changelog-path": "CHANGELOG.md",
   "packages": {
     ".": {
-      "package-name": "yukh"
+      "package-name": "yukh",
+      "release-as": "0.1.0"
     }
   }
 }
