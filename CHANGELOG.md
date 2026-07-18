@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.2.0](https://github.com/nomed/yukh/compare/v0.1.0...v0.2.0) (2026-07-18)
+
+
+### Features
+
+* dogfood Yukh before UC Rust adoption ([ec400a4](https://github.com/nomed/yukh/commit/ec400a471345f56a93019890663383d90aa5a490))
+* publish standard GitHub Action version tags ([e482c98](https://github.com/nomed/yukh/commit/e482c98b51fc91c24ee6783a7a82aed12cc12245))
+
+
+### Bug Fixes
+
+* actionable diagnostics and workflow input for missing project number ([1d3b17b](https://github.com/nomed/yukh/commit/1d3b17b4607283c6c4fd71b9e24119eaa0345cff))
+* improve project number diagnostics and add workflow dispatch input ([46c3926](https://github.com/nomed/yukh/commit/46c392645509a41cb1192bb5b20dcb00c6375f11))
+* make self workflows respect caller permissions ([#38](https://github.com/nomed/yukh/issues/38)) ([526a481](https://github.com/nomed/yukh/commit/526a48156f87f24f484b194217bf1067d192d9a1))
+* remove 'release-as' field from configuration ([07270db](https://github.com/nomed/yukh/commit/07270db0556a089bc436af6bb89bc31250407864))
+* remove floating release tag references ([ee97ba3](https://github.com/nomed/yukh/commit/ee97ba396d94d28e028aa7a696ac1df9d9cbd2d8))
+* remove fromJSON() wrapper from YUKH_PROJECT_NUMBER in workflow ([91dbbcf](https://github.com/nomed/yukh/commit/91dbbcf48315d534b3db66687244a060fa63ae0e))
+* use vars.YUKH_PROJECT_NUMBER directly instead of fromJSON() ([b8c7f68](https://github.com/nomed/yukh/commit/b8c7f688e137752ed01b2af249fa20480ed1963a))
+
 ## [0.1.0](https://github.com/nomed/yukh/compare/v0.1.0...v0.1.0) (2026-07-18)
 
 
