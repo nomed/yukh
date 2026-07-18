@@ -6,7 +6,7 @@ Yukh is the first repository to run its own released action. UC Rust remains the
 
 1. Set repository variable `YUKH_PROJECT_NUMBER` to the Project v2 number used by Yukh.
 2. Keep default workflow permissions read-only.
-3. Allow `nomed/yukh@v0.1.0` and the official GitHub actions used by the reusable workflow.
+3. Allow `nomed/yukh@v0.1.0` or a commit SHA and the official GitHub actions used by the reusable workflow. Floating Yukh tags are unsupported.
 4. Configure required CI checks on protected branches.
 5. Keep issue reconciliation serialized by repository and issue number.
 
@@ -16,7 +16,7 @@ Dry-run uses read-only repository permissions. Apply uses the separate `YUKH_PRO
 
 ## Evidence procedure
 
-1. Confirm that `v0.1.0` resolves to the released action revision.
+1. Confirm that the full release tag `v0.1.0` resolves to the released action revision.
 2. Open or edit an issue containing a valid Yukh contract and capture the dry-run workflow URL.
 3. Run **Yukh self apply** for the issue with `confirm_apply=true` and capture the workflow URL and resulting Project fields.
 4. Run the same apply again and verify `Applied operations: 0` and `No drift detected`.

@@ -2,7 +2,7 @@
 
 Yukh runs in `dry-run` mode by default. The connected runtime resolves the issue and GitHub Project through GraphQL, validates the contract and policy, discovers observed state, builds a deterministic reconciliation plan, and writes a concise GitHub Step Summary.
 
-Always consume an immutable semantic-version release such as `v0.1.0`; do not install from `main`.
+Always consume an immutable full semantic-version release such as `v0.1.0` or a commit SHA. Do not install from `main`, `latest`, `v0`, or `v0.1`.
 
 ## Reusable workflow
 

@@ -69,7 +69,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: nomed/yukh@main
+      - uses: ./
         with:
           issue-number: ${{ inputs.issue_number }}
           project-number: ${{ inputs.project_number }}

@@ -6,14 +6,12 @@ Yukh uses Conventional Commits and release-please. Merges to `main` update a rel
 
 The release workflow requires **Settings → Actions → General → Workflow permissions → Read and write permissions** and permission for GitHub Actions to create pull requests.
 
-The initial compatibility line is pre-1.0. Breaking changes may occur in minor releases before `1.0.0`; every breaking change must be called out in the changelog. Consumers must pin an immutable tag such as `nomed/yukh@v0.1.0`, never `@main`.
-
-After `1.0.0`, Yukh follows Semantic Versioning. A moving major alias such as `v1` may be maintained for opt-in convenience, but production consumers should prefer immutable full-version tags.
+The initial compatibility line is pre-1.0. Breaking changes may occur in minor releases before `1.0.0`; every breaking change must be called out in the changelog. Yukh publishes only immutable full semantic-version tags such as `nomed/yukh@v0.1.0`. Floating aliases such as `latest`, `v1`, and `v1.2` are never created or updated. Consumers that need a stronger pin may use a commit SHA instead of a tag.
 
 ## Public repository installation
 
 1. Enable GitHub Actions in the consumer repository under **Settings → Actions → General**.
-2. Permit `nomed/yukh@vX.Y.Z` and the official actions used by the workflow.
+2. Permit `nomed/yukh@vX.Y.Z` or a commit SHA and the official actions used by the workflow. Floating Yukh tags are not supported.
 3. Copy `examples/minimal/project.yaml` to `.yukh/project.yaml` and adapt field names and mappings.
 4. Add the reusable workflow or call the composite action using an immutable release tag.
 5. Start in `dry-run` with read-only workflow permissions.
@@ -51,4 +49,4 @@ Disable issue-event workflows, run a final dry-run, remove the Yukh workflow and
 
 ## Release verification
 
-CI runs `npm run ci`, including type checking, tests, and `npm run verify:package`. A release is accepted only after a clean consumer workflow resolves the released tag and runs the action without files from `main`.
+CI runs `npm run ci`, including type checking, tests, and `npm run verify:package`. The package verification step rejects floating Yukh refs such as `@latest`, `@v1`, and `@v1.2`. A release is accepted only after a clean consumer workflow resolves the released full-version tag and runs the action without files from `main`.
