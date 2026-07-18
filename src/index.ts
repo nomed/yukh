@@ -1,3 +1,4 @@
+export * from "./connected-runtime.js";
 export * from "./contract.js";
 export * from "./mutation.js";
 export * from "./policy.js";
