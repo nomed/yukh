@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/nomed/yukh/compare/v0.2.0...v0.2.1) (2026-07-18)
+
+
+### Bug Fixes
+
+* use local action in self-apply workflow ([44536ea](https://github.com/nomed/yukh/commit/44536ea96a1ab08c0ab55b5a4b31305dbb9ef265))
+
 ## [0.2.0](https://github.com/nomed/yukh/compare/v0.1.0...v0.2.0) (2026-07-18)
 
 
