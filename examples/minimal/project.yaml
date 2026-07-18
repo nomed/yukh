@@ -1,0 +1,39 @@
+version: 1
+
+project:
+  owner: example-owner
+  repository: example-repository
+  name: Example Project
+
+contract:
+  marker: yukh
+  schema: 1
+
+fields:
+  kind:
+    project_field: Type
+    required: true
+    values:
+      feature: Feature
+      task: Task
+  area:
+    project_field: Area
+    required: true
+    values: {}
+  priority:
+    project_field: Priority
+    required: true
+    values:
+      P1: P1
+      P2: P2
+  estimate:
+    project_field: Estimate
+    type: number
+
+scheduling:
+  automatic_iteration: false
+
+safety:
+  overwrite_human_values: false
+  fail_on_unknown_values: true
+  comment_on_validation_error: true
