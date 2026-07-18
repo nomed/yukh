@@ -13,12 +13,26 @@ fields:
   kind:
     project_field: Work Type
     required: true
+    values:
+      gate: Gate
+      epic: Epic
+      feature: Feature
+      task: Task
   area:
     project_field: Area
     required: true
+    values:
+      governance: Governance
+      runtime: Runtime
+      platform: Platform
   priority:
     project_field: Priority
     required: true
+    values:
+      P0: P0
+      P1: P1
+      P2: P2
+      P3: P3
     accepted_labels:
       - priority:P0
       - priority:P1
@@ -26,8 +40,17 @@ fields:
       - priority:P3
   size:
     project_field: Size
+    required: true
+    values:
+      XS: XS
+      S: S
+      M: M
+      L: L
+      XL: XL
   estimate:
     project_field: Estimate
+    required: true
+    type: number
   iteration:
     project_field: Iteration
   status:
@@ -43,6 +66,13 @@ relationships:
     native: true
   blocks:
     native: true
+
+milestones:
+  M0: M0
+  M1: M1
+
+defaults:
+  execution: hybrid
 
 workflow:
   blocked_status: Blocked
