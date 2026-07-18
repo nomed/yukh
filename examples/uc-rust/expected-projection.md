@@ -1,23 +1,13 @@
 # Expected UC Rust projection
 
-The compatibility fixture must project at least the following state:
+The adoption fixture must project at least the following managed state:
 
-- exact managed repository labels;
-- managed milestones and issue assignments;
-- membership of every governed issue in user Project #4;
-- native Project fields `Status`, `Priority`, `Type`, `Area`, `Release` and `Size`;
-- parent/sub-issue graph;
-- issue dependency graph;
-- deterministic drift diagnostics.
+- membership of the governed issue in the configured GitHub Project;
+- Project fields `Status`, `Priority`, `Work Type`, `Area`, `Size`, `Estimate`, and `Iteration` when configured;
+- deterministic diagnostics for missing, ambiguous, or unsupported mappings;
+- preservation of unmanaged and human-owned values;
+- an idempotent plan where a repeated apply against matching state performs zero writes.
 
-A report must identify each difference with:
+The pilot evidence must identify each planned or applied difference with enough context to understand the field, desired value, observed value, and remediation outcome.
 
-- entity identity;
-- property;
-- desired value;
-- actual value;
-- severity;
-- supported remediation;
-- provenance from the input model.
-
-No difference may be silently ignored.
+Repository labels, milestones, and UC Rust legacy synchronization scripts are outside this first packaged adoption fixture unless added through a later explicit Yukh capability.
