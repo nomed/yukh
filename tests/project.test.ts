@@ -12,7 +12,7 @@ class SequenceTransport implements GraphqlTransport {
   }
 }
 
-function project(overrides: Record<string, unknown> = {}) {
+function project(overrides: Record<string, unknown> = {}): any {
   return {
     organization: {
       projectV2: {
@@ -92,9 +92,7 @@ describe("ReadOnlyProjectAdapter", () => {
   });
 
   it("distinguishes a missing issue item from a missing project", async () => {
-    const response = project({
-      items: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } },
-    });
+    const response = project({ items: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } } });
     const result = await new ReadOnlyProjectAdapter(new SequenceTransport([response])).discover(INPUT);
     expect(result).toMatchObject({ ok: true, value: { issueItem: { present: false, values: {} }, observed: { projectItemPresent: false } } });
   });
@@ -108,17 +106,13 @@ describe("ReadOnlyProjectAdapter", () => {
 
   it("follows Project field and item pagination", async () => {
     const first = project();
-    first.organization.projectV2.fields.nodes = [
-      { __typename: "ProjectV2Field", id: "F_EST", name: "Estimate", dataType: "NUMBER" },
-    ];
+    first.organization.projectV2.fields.nodes = [{ __typename: "ProjectV2Field", id: "F_EST", name: "Estimate", dataType: "NUMBER" }];
     first.organization.projectV2.fields.pageInfo = { hasNextPage: true, endCursor: "FIELDS_2" };
     first.organization.projectV2.items.nodes = [];
     first.organization.projectV2.items.pageInfo = { hasNextPage: true, endCursor: "ITEMS_2" };
 
     const second = project();
-    second.organization.projectV2.fields.nodes = [
-      { __typename: "ProjectV2SingleSelectField", id: "F_PRI", name: "Priority", dataType: "SINGLE_SELECT", options: [{ id: "O0", name: "P0" }] },
-    ];
+    second.organization.projectV2.fields.nodes = [{ __typename: "ProjectV2SingleSelectField", id: "F_PRI", name: "Priority", dataType: "SINGLE_SELECT", options: [{ id: "O0", name: "P0" }] }];
     second.organization.projectV2.fields.pageInfo = { hasNextPage: false, endCursor: null };
 
     const transport = new SequenceTransport([first, second]);
@@ -133,10 +127,7 @@ describe("ReadOnlyProjectAdapter", () => {
 
   it("returns an actionable not-found diagnostic", async () => {
     const result = await new ReadOnlyProjectAdapter(new SequenceTransport([{ organization: { projectV2: null }, user: { projectV2: null } }])).discover(INPUT);
-    expect(result).toEqual({
-      ok: false,
-      diagnostics: [{ code: "project_not_found", message: "Project #7 was not found for 'nomed'", path: "project" }],
-    });
+    expect(result).toEqual({ ok: false, diagnostics: [{ code: "project_not_found", message: "Project #7 was not found for 'nomed'", path: "project" }] });
   });
 
   it("normalizes permission failures", async () => {
