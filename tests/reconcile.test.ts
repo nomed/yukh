@@ -114,13 +114,12 @@ describe("complete Project reconciliation", () => {
     const priority = state.fields.find(({ name }) => name === "Priority")!;
     priority.options.push({ id: "O0_DUP", name: "P0" });
     const result = planCompleteProjectReconciliation({ desired, policy, discovered: state, issueContentId: "ISSUE_61", now: "2026-07-18" });
-    expect(result).toMatchObject({
-      ok: false,
-      diagnostics: expect.arrayContaining([
-        { code: "project_field_not_found", path: "fields.Estimate" },
-        { code: "ambiguous_field_mapping", path: "fields.Priority" },
-      ]),
-    });
+    expect(result).toMatchObject({ ok: false });
+    if (result.ok) return;
+    expect(result.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "project_field_not_found", path: "fields.Estimate" }),
+      expect.objectContaining({ code: "ambiguous_field_mapping", path: "fields.Priority" }),
+    ]));
   });
 
   it("applies all operations and returns no remaining work", async () => {
