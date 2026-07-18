@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { ReadOnlyProjectAdapter, type GraphqlTransport } from "../src/project.js";
 
 class SequenceTransport implements GraphqlTransport {
-  readonly calls: Array<Record<string, unknown>> = [];
+  readonly calls: Array<{ query: string; variables: Record<string, unknown> }> = [];
   constructor(private readonly responses: unknown[]) {}
-  async execute<T>(_query: string, variables: Record<string, unknown>): Promise<T> {
-    this.calls.push(variables);
+  async execute<T>(query: string, variables: Record<string, unknown>): Promise<T> {
+    this.calls.push({ query, variables });
     const response = this.responses.shift();
     if (response instanceof Error) throw response;
     return response as T;
@@ -97,11 +97,18 @@ describe("ReadOnlyProjectAdapter", () => {
     expect(result).toMatchObject({ ok: true, value: { issueItem: { present: false, values: {} }, observed: { projectItemPresent: false } } });
   });
 
-  it("supports user-owned Projects", async () => {
+  it("supports user-owned Projects after an organization lookup failure", async () => {
     const response = project();
     const node = response.organization.projectV2;
-    const result = await new ReadOnlyProjectAdapter(new SequenceTransport([{ organization: null, user: { projectV2: node } }])).discover(INPUT);
+    const transport = new SequenceTransport([
+      new Error("Could not resolve to an Organization with the login of 'nomed'."),
+      { organization: null, user: { projectV2: node } },
+    ]);
+    const result = await new ReadOnlyProjectAdapter(transport).discover(INPUT);
     expect(result).toMatchObject({ ok: true, value: { project: { owner: "nomed", title: "UC Rust" } } });
+    expect(transport.calls).toHaveLength(2);
+    expect(transport.calls[0]?.query).toContain("DiscoverOrganizationProject");
+    expect(transport.calls[1]?.query).toContain("DiscoverUserProject");
   });
 
   it("follows Project field and item pagination", async () => {
@@ -120,13 +127,13 @@ describe("ReadOnlyProjectAdapter", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(transport.calls).toHaveLength(2);
-    expect(transport.calls[1]).toMatchObject({ fieldsCursor: "FIELDS_2", itemsCursor: "ITEMS_2" });
+    expect(transport.calls[1]?.variables).toMatchObject({ fieldsCursor: "FIELDS_2", itemsCursor: "ITEMS_2" });
     expect(result.value.fields.map(({ name }) => name)).toEqual(["Estimate", "Priority"]);
     expect(result.value.issueItem.present).toBe(true);
   });
 
   it("returns an actionable not-found diagnostic", async () => {
-    const result = await new ReadOnlyProjectAdapter(new SequenceTransport([{ organization: { projectV2: null }, user: { projectV2: null } }])).discover(INPUT);
+    const result = await new ReadOnlyProjectAdapter(new SequenceTransport([{ organization: { projectV2: null } }])).discover(INPUT);
     expect(result).toEqual({ ok: false, diagnostics: [{ code: "project_not_found", message: "Project #7 was not found for 'nomed'", path: "project" }] });
   });
 
