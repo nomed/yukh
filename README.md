@@ -26,6 +26,8 @@ Yukh provides one governed model for:
 
 Yukh is in **M0 — Meta Model**. The repository currently defines the project mission, architecture, metamodel, schemas and the first UC Rust example. No production runtime or complete GitHub projection is claimed yet.
 
+The active proving-ground strategy is documented under `examples/uc-rust/`: UC Rust remains authoritative for governance writes while Yukh implements read-only shadow comparison, then sandbox reconciliation and an explicit migration gate.
+
 ## Repository structure
 
 ```text
