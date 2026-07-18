@@ -122,7 +122,8 @@ describe("buildDesiredProjectState", () => {
   it("uses the policy execution default", () => {
     const loaded = loadProjectPolicy(POLICY);
     if (!loaded.ok) throw new Error("policy should load");
-    const result = buildDesiredProjectState({ ...CONTRACT, execution: undefined }, loaded.value);
+    const { execution: _execution, ...withoutExecution } = CONTRACT;
+    const result = buildDesiredProjectState(withoutExecution, loaded.value);
     expect(result).toMatchObject({ ok: true, value: { execution: "hybrid" } });
   });
 
@@ -136,7 +137,8 @@ describe("buildDesiredProjectState", () => {
   it("reports required values missing from the contract", () => {
     const loaded = loadProjectPolicy(POLICY);
     if (!loaded.ok) throw new Error("policy should load");
-    const result = buildDesiredProjectState({ ...CONTRACT, size: undefined }, loaded.value);
+    const { size: _size, ...withoutSize } = CONTRACT;
+    const result = buildDesiredProjectState(withoutSize, loaded.value);
     expect(result).toMatchObject({ ok: false, diagnostics: [{ code: "missing_policy_required", path: "size" }] });
   });
 
