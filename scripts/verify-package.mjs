@@ -25,21 +25,20 @@ if (action.includes("nomed/yukh@main")) throw new Error("action package must not
 const reusableWorkflow = await readFile(".github/workflows/yukh-reconcile.yml", "utf8");
 if (!reusableWorkflow.includes("uses: ./")) throw new Error("reusable workflow must invoke the checked-out local action");
 
-const floatingRefPattern = /nomed\/yukh(?:\/\.github\/workflows\/yukh-reconcile\.yml)?@(main|latest|v\d+(?:\.\d+)?)(?!\.\d)\b/;
-const filesThatMustUsePinnedRefs = [
-  ".github/workflows/yukh-reconcile.yml",
-  ".github/workflows/yukh-self-apply.yml",
-  ".github/workflows/yukh-self-dry-run.yml",
-  "README.md",
-  "docs/dogfooding.md",
-  "docs/github-action.md",
-  "docs/packaging-and-releases.md",
+const releaseWorkflow = await readFile(".github/workflows/release-please.yml", "utf8");
+const requiredReleaseSnippets = [
+  "id: release",
+  "steps.release.outputs.release_created",
+  "latest",
+  "v${{ steps.release.outputs.major }}",
+  "v${{ steps.release.outputs.major }}.${{ steps.release.outputs.minor }}",
+  "git push origin \"refs/tags/$tag\" --force",
+  "${{ steps.release.outputs.tag_name }}",
+  "${{ steps.release.outputs.sha }}",
 ];
 
-for (const path of filesThatMustUsePinnedRefs) {
-  const source = await readFile(path, "utf8");
-  const match = source.match(floatingRefPattern);
-  if (match) throw new Error(`${path} contains unsupported floating Yukh ref: ${match[0]}`);
+for (const snippet of requiredReleaseSnippets) {
+  if (!releaseWorkflow.includes(snippet)) throw new Error(`release workflow is missing required alias-tag logic: ${snippet}`);
 }
 
 const pkg = JSON.parse(await readFile("package.json", "utf8"));

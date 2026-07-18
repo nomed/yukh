@@ -15,6 +15,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: googleapis/release-please-action@v4
+        id: release
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+      - uses: actions/checkout@v4
+        if: ${{ steps.release.outputs.release_created }}
+        with:
+          fetch-depth: 0
+      - name: Update action version tags
+        if: ${{ steps.release.outputs.release_created }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch --force --tags origin
+
+          for tag in \
+            latest \
+            v${{ steps.release.outputs.major }} \
+            v${{ steps.release.outputs.major }}.${{ steps.release.outputs.minor }}
+          do
+            git tag --force --annotate "$tag" "${{ steps.release.outputs.sha }}" --message "Release ${{ steps.release.outputs.tag_name }}"
+            git push origin "refs/tags/$tag" --force
+          done

@@ -2,7 +2,7 @@
 
 Yukh runs in `dry-run` mode by default. The connected runtime resolves the issue and GitHub Project through GraphQL, validates the contract and policy, discovers observed state, builds a deterministic reconciliation plan, and writes a concise GitHub Step Summary.
 
-Always consume an immutable full semantic-version release such as `v0.1.0` or a commit SHA. Do not install from `main`, `latest`, `v0`, or `v0.1`.
+Yukh publishes the standard GitHub Action refs `latest`, `vX`, `vX.Y`, and `vX.Y.Z`. Use the ref that matches your upgrade policy: `vX.Y.Z` or a commit SHA for immutable pinning, `vX.Y` for patch updates within a minor line, `vX` for updates within a major line, or `latest` to track the newest release.
 
 ## Reusable workflow
 
@@ -58,7 +58,7 @@ Apply resolves the issue node ID, discovers fields, options, iterations and the 
 
 ## Public and private action repositories
 
-For public Yukh, enable Actions in the consumer and allow the pinned `nomed/yukh@vX.Y.Z` revision. If Yukh is private, configure **Yukh → Settings → Actions → General → Access** for the intended repositories or organization and ensure the consumer permits the private action. Cross-account private reuse depends on GitHub plan and account topology.
+For public Yukh, enable Actions in the consumer and allow the chosen `nomed/yukh` release ref. If Yukh is private, configure **Yukh → Settings → Actions → General → Access** for the intended repositories or organization and ensure the consumer permits the private action. Cross-account private reuse depends on GitHub plan and account topology.
 
 See [Packaging, releases, and adoption](packaging-and-releases.md) for complete settings, upgrade, rollback and removal guidance.
 
