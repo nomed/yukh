@@ -61,7 +61,8 @@ const validInput = {
 
 describe("GitHub Action runtime", () => {
   it("defaults safely to dry-run and validates repository context", () => {
-    const result = validateRuntimeInput({ ...validInput, mode: undefined });
+    const { mode: _mode, ...withoutMode } = validInput;
+    const result = validateRuntimeInput(withoutMode);
     expect(result).toMatchObject({ ok: true, value: { mode: "dry-run", repository: "nomed/yukh" } });
   });
 
