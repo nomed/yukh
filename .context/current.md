@@ -2,21 +2,24 @@
 
 ## Active issue
 
-- `#21 Implement idempotent relationship application`
-- Branch: `feat/issue-21-relationship-application`
+- `#23 Implement complete Project field reconciliation flow`
+- Branch: `feat/issue-23-complete-field-reconciliation`
 
 ## Implemented
 
-- Injected relationship mutation adapter for parent, child, depends-on and blocks operations.
-- Deterministic sequential application of the plan produced by #19.
-- No-op behavior when the planner produces no operations.
-- Retryable partial-failure results preserving completed and remaining operations.
-- Actionable diagnostics for permission, unsupported-operation and generic mutation failures.
-- End-to-end planner-to-application orchestration without Project field coupling.
-- Automated tests for add/remove application, no-op, validation failure, unsupported operations, permissions and partial retry state.
+- Deterministic multi-field Project mutation planning.
+- Missing-item creation followed by ordered field updates.
+- Single-select, number, text and iteration value resolution.
+- Deterministic automatic iteration selection.
+- Derived Status generation from dependency state.
+- No-op behavior for already matching managed values.
+- Preservation warnings for unmanaged or human-owned fields.
+- Actionable missing, unsupported and ambiguous mapping diagnostics.
+- Retryable apply results preserving completed and remaining operations.
+- End-to-end tests for drift, no-op, iteration, status, human-owned values and partial failure.
 
 ## Deliberately deferred
 
-- Concrete GitHub REST/GraphQL transport wiring belongs to the runtime integration layer.
-- Cross-repository relationships remain out of scope.
-- GitHub Action runtime wiring remains in #6.
+- GitHub Action runtime and reusable workflow wiring remain in #6.
+- Packaging, documentation and first external adoption remain in #13.
+- Cross-repository relationships and architecture-record semantics remain out of scope.
