@@ -2,24 +2,20 @@
 
 ## Active issue
 
-- `#23 Implement complete Project field reconciliation flow`
-- Branch: `feat/issue-23-complete-field-reconciliation`
+- `#25 Implement safe dry-run GitHub Action runtime foundation`
+- Branch: `feat/issue-25-github-action-runtime`
 
 ## Implemented
 
-- Deterministic multi-field Project mutation planning.
-- Missing-item creation followed by ordered field updates.
-- Single-select, number, text and iteration value resolution.
-- Deterministic automatic iteration selection.
-- Derived Status generation from dependency state.
-- No-op behavior for already matching managed values.
-- Preservation warnings for unmanaged or human-owned fields.
-- Actionable missing, unsupported and ambiguous mapping diagnostics.
-- Retryable apply results preserving completed and remaining operations.
-- End-to-end tests for drift, no-op, iteration, status, human-owned values and partial failure.
+- Safe runtime input validation for repository, issue, Project, policy and mode.
+- Dry-run as the default mode with fail-closed apply gates.
+- Deterministic read-only reconciliation execution from issue events or manual inputs.
+- Human-readable, JSON and GitHub Step Summary output.
+- Composite `action.yml` entry point.
+- Reusable workflow with manual dispatch, least-privilege read permissions and per-issue concurrency.
+- Automated tests for validation, apply safety, deterministic output, diagnostics and no-drift summaries.
 
 ## Deliberately deferred
 
-- GitHub Action runtime and reusable workflow wiring remain in #6.
-- Packaging, documentation and first external adoption remain in #13.
-- Cross-repository relationships and architecture-record semantics remain out of scope.
+- Connected apply-mode GraphQL transport and write execution require a follow-up child under #6.
+- Versioned publication, Marketplace packaging and first UC Rust adoption remain in #13.
