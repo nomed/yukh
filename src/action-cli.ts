@@ -1,5 +1,5 @@
 import { appendFile, readFile } from "node:fs/promises";
-import { runActionRuntime } from "./runtime.js";
+import { runConnectedActionRuntime } from "./connected-runtime.js";
 
 interface EventPayload {
   issue?: { number?: number; body?: string | null };
@@ -17,23 +17,24 @@ async function main(): Promise<void> {
     const event = await readEvent(process.env.GITHUB_EVENT_PATH);
     const policyPath = process.env.INPUT_POLICY_PATH || ".yukh/project.yaml";
     const policySource = await readFile(policyPath, "utf8");
-    const issueBody = process.env.INPUT_ISSUE_BODY || event.issue?.body || "";
+    const issueBody = process.env.INPUT_ISSUE_BODY || event.issue?.body || undefined;
     const issueNumber = process.env.INPUT_ISSUE_NUMBER || event.issue?.number || event.inputs?.issue_number;
     const projectNumber = process.env.INPUT_PROJECT_NUMBER || event.inputs?.project_number;
     const repository = process.env.GITHUB_REPOSITORY || event.repository?.full_name;
     const mode = process.env.INPUT_MODE || event.inputs?.mode || "dry-run";
     const applyEnabled = process.env.INPUT_APPLY_ENABLED;
+    const token = process.env.GITHUB_TOKEN;
 
-    const outcome = runActionRuntime({
+    const outcome = await runConnectedActionRuntime({
       ...(repository !== undefined ? { repository } : {}),
       ...(issueNumber !== undefined ? { issueNumber } : {}),
       ...(projectNumber !== undefined ? { projectNumber } : {}),
       mode,
       policyPath,
-      issueBody,
+      ...(issueBody !== undefined ? { issueBody } : {}),
       policySource,
       ...(applyEnabled !== undefined ? { applyEnabled } : {}),
-      tokenAvailable: Boolean(process.env.GITHUB_TOKEN),
+      ...(token !== undefined ? { token } : {}),
     });
 
     console.log(outcome.human);
