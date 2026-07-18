@@ -1,11 +1,5 @@
-# UC Rust migration gate
+# UC Rust adoption gate
 
-Yukh becomes the UC Rust governance apply engine only when all conditions are satisfied:
+UC Rust enables Yukh apply mode only after the pinned release, self-dogfooding, dry-run, controlled apply, repeated no-op apply, failure retry, rollback, and acceptance evidence are complete.
 
-- compatibility surface implemented;
-- zero unexplained shadow drift;
-- idempotency proven;
-- partial-failure diagnostics proven;
-- sandbox reconciliation proven;
-- rollback proven;
-- bilateral acceptance recorded.
+Acceptance is recorded in `nomed/uc-rust#69`.

@@ -1,0 +1,23 @@
+name: Yukh self dry-run
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+
+permissions:
+  contents: read
+  issues: read
+  repository-projects: read
+
+concurrency:
+  group: yukh-self-${{ github.repository }}-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    uses: nomed/yukh/.github/workflows/yukh-reconcile.yml@v0.1.0
+    with:
+      issue_number: ${{ github.event.issue.number }}
+      project_number: ${{ fromJSON(vars.YUKH_PROJECT_NUMBER) }}
+      policy_path: .yukh/project.yaml
+      mode: dry-run
