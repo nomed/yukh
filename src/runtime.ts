@@ -67,8 +67,18 @@ export function validateRuntimeInput(input: RuntimeInput):
   }
   const issueNumber = positiveInteger(input.issueNumber);
   if (!issueNumber) diagnostics.push(diagnostic("invalid_issue_number", "issue number must be a positive integer", "issueNumber"));
-  const projectNumber = positiveInteger(input.projectNumber);
-  if (!projectNumber) diagnostics.push(diagnostic("invalid_project_number", "project number must be a positive integer", "projectNumber"));
+  const rawProjectNumber = input.projectNumber;
+  const projectNumber = positiveInteger(rawProjectNumber);
+  if (!projectNumber) {
+    const isMissing = rawProjectNumber === undefined || rawProjectNumber === "";
+    diagnostics.push(diagnostic(
+      "invalid_project_number",
+      isMissing
+        ? "project number is required — set the YUKH_PROJECT_NUMBER repository variable or pass project-number as a workflow input"
+        : "project number must be a positive integer",
+      "projectNumber",
+    ));
+  }
   if (!input.issueBody) diagnostics.push(diagnostic("missing_issue_body", "issue body is required", "issueBody"));
   if (!input.policySource) diagnostics.push(diagnostic("missing_policy", "project policy source is required", "policySource"));
 

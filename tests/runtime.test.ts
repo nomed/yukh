@@ -85,6 +85,33 @@ describe("GitHub Action runtime", () => {
     expect(result.summary).toContain("invalid_repository");
   });
 
+  it("reports missing project number with a hint about YUKH_PROJECT_NUMBER", () => {
+    const { projectNumber: _pn, ...withoutProject } = validInput;
+    const result = runActionRuntime(withoutProject);
+    expect(result.ok).toBe(false);
+    const diag = result.diagnostics.find(({ code }) => code === "invalid_project_number");
+    expect(diag).toBeDefined();
+    expect(diag?.message).toContain("YUKH_PROJECT_NUMBER");
+    expect(diag?.message).toContain("project-number");
+  });
+
+  it("reports empty-string project number (unset repository variable) with a hint", () => {
+    const result = runActionRuntime({ ...validInput, projectNumber: "" });
+    expect(result.ok).toBe(false);
+    const diag = result.diagnostics.find(({ code }) => code === "invalid_project_number");
+    expect(diag).toBeDefined();
+    expect(diag?.message).toContain("YUKH_PROJECT_NUMBER");
+  });
+
+  it("reports non-positive project number with a type-level error (not the missing hint)", () => {
+    const result = runActionRuntime({ ...validInput, projectNumber: "0" });
+    expect(result.ok).toBe(false);
+    const diag = result.diagnostics.find(({ code }) => code === "invalid_project_number");
+    expect(diag).toBeDefined();
+    expect(diag?.message).toBe("project number must be a positive integer");
+    expect(diag?.message).not.toContain("YUKH_PROJECT_NUMBER");
+  });
+
   it("renders a no-drift summary", () => {
     const result = runActionRuntime({
       ...validInput,
