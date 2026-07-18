@@ -2,22 +2,21 @@
 
 ## Active issue
 
-- `#19 Implement relationship validation and reconciliation planning`
-- Branch: `feat/issue-19-relationship-planning`
+- `#21 Implement idempotent relationship application`
+- Branch: `feat/issue-21-relationship-application`
 
 ## Implemented
 
-- Typed normalized relationship state for parent, children, depends-on and blocks.
-- Deterministic add/remove/no-op planning without GitHub mutations.
-- Repository-local reference validation and self-reference rejection.
-- Missing-reference, duplicate-node and ambiguous-parent diagnostics.
-- Reciprocal validation for parent/child and depends-on/blocks declarations.
-- Dependency-cycle and parent-cycle detection across the available graph.
-- Stable ordering for normalized lists, diagnostics and operations.
-- Automated tests covering normalization, no-op, creation, removal, missing references, ambiguity, conflicts and cycles.
+- Injected relationship mutation adapter for parent, child, depends-on and blocks operations.
+- Deterministic sequential application of the plan produced by #19.
+- No-op behavior when the planner produces no operations.
+- Retryable partial-failure results preserving completed and remaining operations.
+- Actionable diagnostics for permission, unsupported-operation and generic mutation failures.
+- End-to-end planner-to-application orchestration without Project field coupling.
+- Automated tests for add/remove application, no-op, validation failure, unsupported operations, permissions and partial retry state.
 
 ## Deliberately deferred
 
-- Applying native GitHub relationship mutations belongs to the next child issue under #12.
-- Remote graph discovery and pagination will be integrated with the GitHub adapter when mutation support is added.
+- Concrete GitHub REST/GraphQL transport wiring belongs to the runtime integration layer.
+- Cross-repository relationships remain out of scope.
 - GitHub Action runtime wiring remains in #6.
