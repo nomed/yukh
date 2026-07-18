@@ -1,0 +1,47 @@
+name: Yukh reconciliation
+description: Validate an issue contract and produce a deterministic read-only reconciliation report.
+inputs:
+  issue-number:
+    description: Issue number to reconcile. Defaults to the triggering issue.
+    required: false
+  issue-body:
+    description: Issue body override. Defaults to the triggering issue body.
+    required: false
+  project-number:
+    description: GitHub Project v2 number.
+    required: true
+  policy-path:
+    description: Path to the Yukh repository policy.
+    required: false
+    default: .yukh/project.yaml
+  mode:
+    description: dry-run or apply. The foundation action executes read-only reconciliation and fails closed for unsafe apply requests.
+    required: false
+    default: dry-run
+  apply-enabled:
+    description: Explicit apply-mode safety gate.
+    required: false
+    default: "false"
+runs:
+  using: composite
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+    - name: Install Yukh runtime
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: npm install
+    - name: Run Yukh
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      env:
+        INPUT_ISSUE_NUMBER: ${{ inputs.issue-number }}
+        INPUT_ISSUE_BODY: ${{ inputs.issue-body }}
+        INPUT_PROJECT_NUMBER: ${{ inputs.project-number }}
+        INPUT_POLICY_PATH: ${{ inputs.policy-path }}
+        INPUT_MODE: ${{ inputs.mode }}
+        INPUT_APPLY_ENABLED: ${{ inputs.apply-enabled }}
+        GITHUB_TOKEN: ${{ github.token }}
+      run: npx --prefix "${{ github.action_path }}" tsx "${{ github.action_path }}/src/action-cli.ts"

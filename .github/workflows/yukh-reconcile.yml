@@ -1,0 +1,82 @@
+name: Yukh reusable reconciliation
+
+on:
+  workflow_call:
+    inputs:
+      issue_number:
+        type: number
+        required: true
+      project_number:
+        type: number
+        required: true
+      policy_path:
+        type: string
+        required: false
+        default: .yukh/project.yaml
+      mode:
+        type: string
+        required: false
+        default: dry-run
+      apply_enabled:
+        type: boolean
+        required: false
+        default: false
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Issue number
+        type: number
+        required: true
+      project_number:
+        description: Project v2 number
+        type: number
+        required: true
+      policy_path:
+        description: Policy path
+        type: string
+        required: false
+        default: .yukh/project.yaml
+      mode:
+        description: Reconciliation mode
+        type: choice
+        options: [dry-run, apply]
+        required: false
+        default: dry-run
+      apply_enabled:
+        description: Explicitly allow apply mode
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+  issues: read
+
+concurrency:
+  group: yukh-${{ github.repository }}-${{ inputs.issue_number }}
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read issue body
+        id: issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data } = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: Number('${{ inputs.issue_number }}')
+            });
+            core.setOutput('body', data.body || '');
+      - uses: nomed/yukh@main
+        with:
+          issue-number: ${{ inputs.issue_number }}
+          issue-body: ${{ steps.issue.outputs.body }}
+          project-number: ${{ inputs.project_number }}
+          policy-path: ${{ inputs.policy_path }}
+          mode: ${{ inputs.mode }}
+          apply-enabled: ${{ inputs.apply_enabled }}
