@@ -1,0 +1,61 @@
+version: 1
+
+project:
+  owner: nomed
+  repository: uc-rust
+  name: uc-rust
+
+contract:
+  marker: yukh
+  schema: 1
+
+fields:
+  kind:
+    project_field: Work Type
+    required: true
+  area:
+    project_field: Area
+    required: true
+  priority:
+    project_field: Priority
+    required: true
+    accepted_labels:
+      - priority:P0
+      - priority:P1
+      - priority:P2
+      - priority:P3
+  size:
+    project_field: Size
+  estimate:
+    project_field: Estimate
+  iteration:
+    project_field: Iteration
+  status:
+    project_field: Status
+    derived: true
+
+relationships:
+  parent:
+    native: true
+  children:
+    native: true
+  depends_on:
+    native: true
+  blocks:
+    native: true
+
+workflow:
+  blocked_status: Blocked
+  backlog_status: Backlog
+  ready_status: Ready
+  in_progress_status: In Progress
+  review_status: Review
+  done_status: Done
+
+scheduling:
+  automatic_iteration: false
+
+safety:
+  overwrite_human_values: false
+  fail_on_unknown_values: true
+  comment_on_validation_error: true
