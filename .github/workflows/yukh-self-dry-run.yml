@@ -15,9 +15,12 @@ concurrency:
 
 jobs:
   reconcile:
-    uses: nomed/yukh/.github/workflows/yukh-reconcile.yml@v0.1.0
-    with:
-      issue_number: ${{ github.event.issue.number }}
-      project_number: ${{ fromJSON(vars.YUKH_PROJECT_NUMBER) }}
-      policy_path: .yukh/project.yaml
-      mode: dry-run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: nomed/yukh@v0.1.0
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          project-number: ${{ fromJSON(vars.YUKH_PROJECT_NUMBER) }}
+          policy-path: .yukh/project.yaml
+          mode: dry-run
