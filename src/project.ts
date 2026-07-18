@@ -263,13 +263,14 @@ export class ReadOnlyProjectAdapter {
 
     try {
       do {
-        const response = await this.transport.execute<ProjectResponse>(PROJECT_QUERY, {
+        const response: ProjectResponse = await this.transport.execute<ProjectResponse>(PROJECT_QUERY, {
           owner: input.owner,
           number: input.projectNumber,
           fieldsCursor,
           itemsCursor,
         });
-        const pageProject = response.organization?.projectV2 ?? response.user?.projectV2 ?? null;
+        const pageProject: ProjectNode | null =
+          response.organization?.projectV2 ?? response.user?.projectV2 ?? null;
         if (!pageProject) {
           return {
             ok: false,
