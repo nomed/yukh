@@ -4,6 +4,8 @@
 
 Yukh uses Conventional Commits and release-please. Merges to `main` update a release pull request. Merging that release pull request creates an immutable semantic-version tag and GitHub Release.
 
+The release workflow requires **Settings → Actions → General → Workflow permissions → Read and write permissions** and permission for GitHub Actions to create pull requests.
+
 The initial compatibility line is pre-1.0. Breaking changes may occur in minor releases before `1.0.0`; every breaking change must be called out in the changelog. Consumers must pin an immutable tag such as `nomed/yukh@v0.1.0`, never `@main`.
 
 After `1.0.0`, Yukh follows Semantic Versioning. A moving major alias such as `v1` may be maintained for opt-in convenience, but production consumers should prefer immutable full-version tags.
