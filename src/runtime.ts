@@ -1,5 +1,5 @@
 import type { ContractDiagnostic } from "./contract.js";
-import type { ReconciliationReport } from "./report.js";
+import type { ObservedProjectState, ReconciliationReport } from "./report.js";
 import { buildReadOnlyReport, renderHumanReport, serializeReport } from "./report.js";
 
 export type RuntimeMode = "dry-run" | "apply";
@@ -12,7 +12,7 @@ export interface RuntimeEnvironment {
   policyPath: string;
   issueBody: string;
   policySource: string;
-  observed?: Record<string, unknown>;
+  observed?: Partial<ObservedProjectState>;
   applyEnabled: boolean;
   tokenAvailable: boolean;
 }
@@ -25,7 +25,7 @@ export interface RuntimeInput {
   policyPath?: string;
   issueBody?: string;
   policySource?: string;
-  observed?: Record<string, unknown>;
+  observed?: Partial<ObservedProjectState>;
   applyEnabled?: string | boolean;
   tokenAvailable?: boolean;
 }
@@ -104,7 +104,7 @@ function diagnosticsSummary(mode: RuntimeMode, diagnostics: ContractDiagnostic[]
   return [
     `# Yukh ${mode}`,
     "",
-    `**Status:** error`,
+    "**Status:** error",
     `**Errors:** ${diagnostics.length}`,
     "",
     ...diagnostics.map(({ code, path, message }) => `- \`${path}\` — ${message} (\`${code}\`)`),
@@ -155,7 +155,6 @@ export function runActionRuntime(input: RuntimeInput): RuntimeOutcome {
     issueNumber: environment.issueNumber,
     artifact: `${environment.repository}#${environment.issueNumber}`,
   });
-  const diagnostics = report.diagnostics;
   return {
     ok: report.status !== "error",
     mode: environment.mode,
@@ -163,6 +162,6 @@ export function runActionRuntime(input: RuntimeInput): RuntimeOutcome {
     human: renderHumanReport(report),
     json: serializeReport(report),
     summary: buildStepSummary(report, environment.repository, environment.issueNumber),
-    diagnostics,
+    diagnostics: report.diagnostics,
   };
 }
