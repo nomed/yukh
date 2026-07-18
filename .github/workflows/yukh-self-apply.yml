@@ -30,7 +30,7 @@ jobs:
       - uses: nomed/yukh@v0.1.0
         with:
           issue-number: ${{ inputs.issue_number }}
-          project-number: ${{ fromJSON(vars.YUKH_PROJECT_NUMBER) }}
+          project-number: ${{ vars.YUKH_PROJECT_NUMBER }}
           policy-path: .yukh/project.yaml
           mode: apply
           apply-enabled: true
