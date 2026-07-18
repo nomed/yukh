@@ -2,20 +2,22 @@
 
 ## Active issue
 
-- `#9 Implement read-only reconciliation report`
-- Branch: `feat/issue-9-read-only-report`
+- `#10 Implement read-only Project discovery and observed state`
+- Branch: `feat/issue-10-project-discovery`
 
 ## Implemented
 
-- End-to-end read-only pipeline: issue contract parsing, policy loading, desired-state generation and observed-state comparison.
-- Versioned deterministic JSON report schema.
-- Concise human-readable summaries for no-op, drift, warning and error outcomes.
-- Stable ordering for diagnostics, fields, relationships and differences.
-- Explicit planned-change records without any GitHub mutation capability.
-- Preservation warnings for unmanaged or human-owned Project fields.
-- CLI command accepting issue Markdown, policy YAML and optional observed-state JSON.
-- Automated tests covering no-op, drift, warnings, invalid contract, invalid policy, stable serialization and relationship normalization.
+- Read-only GitHub Project v2 adapter behind an injected GraphQL transport.
+- Project resolution for organization-owned and user-owned Projects.
+- Normalized Project identity, field definitions, single-select options and iterations.
+- Paginated Project field and item discovery.
+- Current issue item lookup by repository and issue number.
+- Deterministic normalization of text, number, single-select and iteration field values.
+- Explicit distinction between a missing Project item and a missing Project.
+- Actionable diagnostics for invalid input, missing resources, permission failures and API failures.
+- Observed state compatible with the existing read-only reconciliation report.
+- Automated tests covering supported discovery, pagination, missing items, user Projects and failures.
 
 ## Deliberately deferred
 
-Observed state is supplied as normalized JSON in this issue. Live GitHub Project discovery and field reading belong to #10; mutations belong to #11 and relationship application belongs to #12.
+The adapter performs no mutations. Adding Project items and setting fields belong to #11. Native parent/child and dependency observation and reconciliation remain in #12.
