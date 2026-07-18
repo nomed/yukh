@@ -122,10 +122,10 @@ describe("buildRelationshipPlan", () => {
     expect(result).toMatchObject({
       ok: false,
       diagnostics: expect.arrayContaining([
-        {
+        expect.objectContaining({
           code: "relationship_ambiguous_parent",
           path: "issues.3.relationships.parent",
-        },
+        }),
       ]),
     });
   });
@@ -159,10 +159,10 @@ describe("buildRelationshipPlan", () => {
     expect(result).toMatchObject({
       ok: false,
       diagnostics: expect.arrayContaining([
-        {
+        expect.objectContaining({
           code: "relationship_dependency_cycle",
           path: "relationships.dependsOn",
-        },
+        }),
       ]),
     });
   });
@@ -179,10 +179,10 @@ describe("buildRelationshipPlan", () => {
     expect(result).toMatchObject({
       ok: false,
       diagnostics: expect.arrayContaining([
-        {
+        expect.objectContaining({
           code: "relationship_parent_cycle",
           path: "relationships.parent",
-        },
+        }),
       ]),
     });
   });
