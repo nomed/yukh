@@ -1,11 +1,11 @@
 name: Yukh reconciliation
-description: Validate an issue contract and produce a deterministic read-only reconciliation report.
+description: Discover GitHub Project state and run deterministic dry-run or explicitly authorized apply reconciliation.
 inputs:
   issue-number:
     description: Issue number to reconcile. Defaults to the triggering issue.
     required: false
   issue-body:
-    description: Issue body override. Defaults to the triggering issue body.
+    description: Optional issue body override. Otherwise the action resolves the issue through GraphQL.
     required: false
   project-number:
     description: GitHub Project v2 number.
@@ -15,13 +15,16 @@ inputs:
     required: false
     default: .yukh/project.yaml
   mode:
-    description: dry-run or apply. The foundation action executes read-only reconciliation and fails closed for unsafe apply requests.
+    description: dry-run or apply. Apply also requires apply-enabled=true and a write-capable token.
     required: false
     default: dry-run
   apply-enabled:
     description: Explicit apply-mode safety gate.
     required: false
     default: "false"
+  github-token:
+    description: Token used for issue, Project discovery, and optional Project mutations.
+    required: false
 runs:
   using: composite
   steps:
@@ -43,5 +46,5 @@ runs:
         INPUT_POLICY_PATH: ${{ inputs.policy-path }}
         INPUT_MODE: ${{ inputs.mode }}
         INPUT_APPLY_ENABLED: ${{ inputs.apply-enabled }}
-        GITHUB_TOKEN: ${{ github.token }}
+        GITHUB_TOKEN: ${{ inputs.github-token || github.token }}
       run: npx --prefix "${{ github.action_path }}" tsx "${{ github.action_path }}/src/action-cli.ts"

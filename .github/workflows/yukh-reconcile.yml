@@ -21,6 +21,10 @@ on:
         type: boolean
         required: false
         default: false
+    secrets:
+      yukh_token:
+        description: Optional GitHub App or PAT token with Project write access for apply mode.
+        required: false
   workflow_dispatch:
     inputs:
       issue_number:
@@ -48,9 +52,13 @@ on:
         required: false
         default: false
 
+# Dry-run needs only contents/issues read. Repository Project apply additionally
+# needs repository-projects: write. Organization/user Projects generally require
+# a GitHub App or fine-grained PAT passed as yukh_token with matching Project access.
 permissions:
   contents: read
   issues: read
+  repository-projects: write
 
 concurrency:
   group: yukh-${{ github.repository }}-${{ inputs.issue_number }}
@@ -61,22 +69,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Read issue body
-        id: issue
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { data } = await github.rest.issues.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: Number('${{ inputs.issue_number }}')
-            });
-            core.setOutput('body', data.body || '');
       - uses: nomed/yukh@main
         with:
           issue-number: ${{ inputs.issue_number }}
-          issue-body: ${{ steps.issue.outputs.body }}
           project-number: ${{ inputs.project_number }}
           policy-path: ${{ inputs.policy_path }}
           mode: ${{ inputs.mode }}
           apply-enabled: ${{ inputs.apply_enabled }}
+          github-token: ${{ secrets.yukh_token || github.token }}

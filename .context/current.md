@@ -2,20 +2,23 @@
 
 ## Active issue
 
-- `#25 Implement safe dry-run GitHub Action runtime foundation`
-- Branch: `feat/issue-25-github-action-runtime`
+- `#27 Implement connected apply-mode GitHub Action runtime`
+- Branch: `feat/issue-27-connected-apply-runtime`
 
 ## Implemented
 
-- Safe runtime input validation for repository, issue, Project, policy and mode.
-- Dry-run as the default mode with fail-closed apply gates.
-- Deterministic read-only reconciliation execution from issue events or manual inputs.
-- Human-readable, JSON and GitHub Step Summary output.
-- Composite `action.yml` entry point.
-- Reusable workflow with manual dispatch, least-privilege read permissions and per-issue concurrency.
-- Automated tests for validation, apply safety, deterministic output, diagnostics and no-drift summaries.
+- Authenticated GitHub GraphQL transport with explicit error handling.
+- Triggering issue resolution including issue body and node ID.
+- Connected Project discovery for identity, fields, options, iterations and observed item state.
+- Contract and policy validation followed by desired-state construction.
+- Deterministic complete multi-field planning shared by dry-run and apply.
+- Explicit apply gate requiring `mode=apply`, `apply_enabled=true`, and a token.
+- Sequential idempotent mutation execution with partial-failure and retry details.
+- Step Summary counts for planned, applied and remaining operations.
+- Reusable workflow token and permission guidance for repository, organization and user Projects.
+- Automated tests for transport, dry-run no-write, apply, repeated no-op, permissions and partial failure.
 
 ## Deliberately deferred
 
-- Connected apply-mode GraphQL transport and write execution require a follow-up child under #6.
-- Versioned publication, Marketplace packaging and first UC Rust adoption remain in #13.
+- Marketplace publication, immutable version tags and first UC Rust adoption remain in #13.
+- Cross-repository relationships and architecture-record semantics remain out of scope.
