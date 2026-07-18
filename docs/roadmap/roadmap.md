@@ -1,80 +1,82 @@
 # Yukh Roadmap
 
-## M0 — Meta Model
+## M0 — Contract
 
-Outcome: a stable, validated language for project identity, entities, relations, provenance, events and temporal state.
-
-Deliverables:
-
-- project charter and manifesto;
-- ADR-0001;
-- identity and lifecycle model;
-- entity and relation schemas;
-- Knowledge Event schema;
-- temporal and supersession semantics;
-- first UC Rust fixture;
-- repository validation workflow.
-
-Exit gate: the UC Rust example can be represented without using GitHub-specific semantics in the core model.
-
-## M1 — Knowledge Engine
-
-Outcome: accepted events produce deterministic current state and historical snapshots.
+Outcome: agents can create issues with a stable hidden metadata block.
 
 Deliverables:
 
-- event append and validation contract;
-- deterministic reducer;
-- snapshot format;
-- session ingestion;
-- decision and evidence lifecycle;
-- time-travel query contract;
-- bounded agent context package.
+- issue contract v1;
+- repository policy format;
+- UC Rust field and label mapping;
+- validation fixtures for valid and invalid issues.
 
-Exit gate: reconstruct a UC Rust project snapshot at two revisions and explain the delta with provenance.
+Exit gate: issue #61 can be parsed and validated deterministically.
 
-## M2 — GitHub Projection
+## M1 — Read-only inspection
 
-Outcome: GitHub becomes a convergent projection of Yukh.
+Outcome: Yukh can compare one issue with its GitHub Project representation without writing.
 
 Deliverables:
 
-- issue, milestone and Project v2 mapping;
-- parent/sub-issue and dependency projection;
-- roadmap and field reconciliation;
-- desired/observed/drift model;
-- dry-run and apply plans;
-- idempotency and partial-failure evidence;
-- import path from the current UC Rust governance manifests.
+- GitHub issue reader;
+- Project v2 field discovery;
+- desired-state calculation;
+- dry-run reconciliation report;
+- diagnostics for missing fields and invalid references.
 
-Exit gate: project UC Rust into GitHub from Yukh, detect deliberate drift and reconcile without losing model history.
+Exit gate: Yukh reports exactly which values are absent or inconsistent for UC Rust issue #61.
 
-## M3 — Knowledge Adapters
+## M2 — Field reconciliation
 
-Outcome: project knowledge links to external authoritative bodies without copying their authority.
+Outcome: Yukh safely adds an issue to the Project and populates configured fields.
 
 Deliverables:
 
-- UC-BoK traceability adapter;
-- Economics by Design adapter;
-- revision pinning and compatibility policy;
-- reciprocal feedback references;
-- evidence and epistemic-status mapping.
+- Project membership reconciliation;
+- Priority, Work Type, Area, Size and Estimate mapping;
+- milestone mapping;
+- idempotency tests;
+- check-run or comment diagnostics.
 
-Exit gate: a UC Rust capability traces to UC-BoK, EbD, implementation issue and evidence through one queryable graph.
+Exit gate: repeated execution converges without duplicate items or unwanted overwrites.
 
-## M4 — Agent Runtime
+## M3 — Relationships and workflow
 
-Outcome: agents receive fresh, minimal and governed external memory.
+Outcome: parent, child and dependency structure controls readiness and status.
 
 Deliverables:
 
-- role-aware context assembly;
-- freshness and relevance policy;
-- semantic retrieval as a derived index;
-- write-back proposals and approval flow;
-- session consolidation;
-- privacy and authorization controls;
-- MCP or equivalent protocol adapter.
+- native sub-issue reconciliation;
+- dependency reconciliation;
+- cycle and missing-reference validation;
+- derived Blocked, Backlog and Ready states;
+- gate and human-approval policy.
 
-Exit gate: a new agent can resume UC Rust work with bounded context, cite sources, identify uncertainty and propose changes without reconstructing the project from chat history.
+Exit gate: issue #61 remains blocked until its declared dependencies are complete and then moves to the configured decision state.
+
+## M4 — Iterations and roadmap
+
+Outcome: the GitHub Project exposes a useful backlog, sprint plan and roadmap.
+
+Deliverables:
+
+- iteration discovery and assignment policy;
+- explicit and automatic scheduling rules;
+- roadmap start and target mapping;
+- standard Project views documented as policy;
+- bulk reconciliation for existing UC Rust issues.
+
+Exit gate: UC Rust has populated backlog, current-iteration and roadmap views with no unexplained drift.
+
+## M5 — Reusable Action
+
+Outcome: other repositories can adopt Yukh through versioned configuration and one reusable Action.
+
+Deliverables:
+
+- packaged GitHub Action;
+- installation guide;
+- policy schema versioning;
+- migration and rollback procedure;
+- compatibility test suite.
