@@ -10,21 +10,6 @@ contract:
   schema: 1
 
 fields:
-  kind:
-    project_field: Type
-    required: true
-    values:
-      epic: Epic
-      feature: Feature
-      task: Task
-  area:
-    project_field: Area
-    required: true
-    values:
-      core: Core
-      runtime: Runtime
-      packaging: Packaging
-      adoption: Adoption
   priority:
     project_field: Priority
     required: true
