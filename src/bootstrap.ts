@@ -1,13 +1,15 @@
 import type { ContractDiagnostic } from "./contract.js";
 import type { GraphqlTransport } from "./project.js";
-import { loadProjectPolicy, type ProjectPolicy } from "./policy.js";
+import { loadProjectPolicy, type FieldOwnership, type ProjectPolicy } from "./policy.js";
 
 export type BootstrapMode = "dry-run" | "apply";
 export type BootstrapFieldType = "SINGLE_SELECT" | "NUMBER";
 export type BootstrapFieldMutability = "custom" | "status" | "derived" | "ambiguous";
+export type EffectiveFieldOwnership = FieldOwnership | "external";
 export interface BootstrapOption { id?: string; name: string; color: string; description: string; }
-export interface BootstrapFieldSpec { name: string; dataType: BootstrapFieldType; options: BootstrapOption[]; management?: "custom" | "status"; }
+export interface BootstrapFieldSpec { name: string; dataType: BootstrapFieldType; options: BootstrapOption[]; management?: "custom" | "status"; ownership?: Exclude<FieldOwnership, "derived">; }
 export interface ExistingBootstrapField { id: string; name: string; dataType: string; options: BootstrapOption[]; typename?: string; mutability?: BootstrapFieldMutability; }
+export interface ClassifiedBootstrapField { field: ExistingBootstrapField; ownership: EffectiveFieldOwnership; }
 export type BootstrapOperation =
   | { kind: "create-field"; field: BootstrapFieldSpec }
   | { kind: "update-options"; field: BootstrapFieldSpec; fieldId: string; options: BootstrapOption[]; missing: string[]; preserved: string[] };
@@ -59,8 +61,8 @@ function stableColor(index: number): string {
   const colors = ["GRAY", "BLUE", "GREEN", "YELLOW", "ORANGE", "RED", "PURPLE", "PINK"];
   return colors[index % colors.length] ?? "GRAY";
 }
-function selectSpec(name: string, names: string[], management: "custom" | "status" = "custom"): BootstrapFieldSpec {
-  return { name, dataType: "SINGLE_SELECT", options: [...new Set(names)].map((option, index) => ({ name: option, color: stableColor(index), description: "" })), management };
+function selectSpec(name: string, names: string[], management: "custom" | "status" = "custom", ownership: "core" | "extension" = "extension"): BootstrapFieldSpec {
+  return { name, dataType: "SINGLE_SELECT", options: [...new Set(names)].map((option, index) => ({ name: option, color: stableColor(index), description: "" })), management, ownership };
 }
 
 export function desiredProjectSchema(policy: ProjectPolicy): { fields: BootstrapFieldSpec[]; diagnostics: ContractDiagnostic[] } {
@@ -68,9 +70,10 @@ export function desiredProjectSchema(policy: ProjectPolicy): { fields: Bootstrap
   const byName = new Map<string, BootstrapFieldSpec>();
   for (const [logicalName, rule] of Object.entries(policy.fields).sort(([a], [b]) => a.localeCompare(b))) {
     if (!rule || logicalName === "status" || logicalName === "iteration" || rule.derived) continue;
+    const ownership = rule.ownership === "core" ? "core" : "extension";
     let spec: BootstrapFieldSpec;
-    if (rule.type === "number") spec = { name: rule.projectField, dataType: "NUMBER", options: [], management: "custom" };
-    else if (Object.keys(rule.values).length > 0) spec = selectSpec(rule.projectField, Object.values(rule.values).sort((a, b) => a.localeCompare(b)));
+    if (rule.type === "number") spec = { name: rule.projectField, dataType: "NUMBER", options: [], management: "custom", ownership };
+    else if (Object.keys(rule.values).length > 0) spec = selectSpec(rule.projectField, Object.values(rule.values).sort((a, b) => a.localeCompare(b)), "custom", ownership);
     else {
       diagnostics.push(diagnostic("unsupported_bootstrap_field", `Policy field '${logicalName}' maps to '${rule.projectField}' without enum values or numeric type; Yukh cannot infer a safe Project field type`, `fields.${logicalName}`));
       continue;
@@ -83,15 +86,27 @@ export function desiredProjectSchema(policy: ProjectPolicy): { fields: Bootstrap
     }
     if (existing?.dataType === "SINGLE_SELECT") {
       const names = [...new Set([...existing.options.map(({ name }) => name), ...spec.options.map(({ name }) => name)])].sort();
-      byName.set(key, selectSpec(existing.name, names, existing.management ?? "custom"));
+      byName.set(key, selectSpec(existing.name, names, existing.management ?? "custom", existing.ownership ?? ownership));
     } else byName.set(key, spec);
   }
   const statusField = policy.fields.status?.projectField ?? "Status";
   byName.set(statusField.toLowerCase(), selectSpec(statusField, [
     policy.workflow.backlog, policy.workflow.ready, policy.workflow.inProgress,
     policy.workflow.review, policy.workflow.blocked, policy.workflow.done,
-  ], "status"));
+  ], "status", "core"));
   return { fields: [...byName.values()].sort((a, b) => a.name.localeCompare(b.name)), diagnostics };
+}
+
+export function classifyProjectFields(existing: ExistingBootstrapField[], desired: BootstrapFieldSpec[]): ClassifiedBootstrapField[] {
+  const desiredByName = new Map(desired.map((field) => [field.name.toLowerCase(), field]));
+  return [...existing]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((field) => {
+      const wanted = desiredByName.get(field.name.toLowerCase());
+      const ownership: EffectiveFieldOwnership = wanted?.ownership
+        ?? (field.mutability === "derived" || field.typename === "ProjectV2IterationField" ? "derived" : "external");
+      return { field, ownership };
+    });
 }
 
 export function mergeBootstrapOptions(existing: BootstrapOption[], desired: BootstrapOption[]) {
