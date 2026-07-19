@@ -29,7 +29,7 @@ export function buildEffectiveProjectSchema(policy: ProjectPolicy): EffectivePro
       return [{
         logicalName,
         projectField: rule.projectField,
-        ownership: rule.ownership ?? defaultFieldOwnership(logicalName, rule),
+        ownership: defaultFieldOwnership(logicalName, rule),
         rule,
       }];
     })
