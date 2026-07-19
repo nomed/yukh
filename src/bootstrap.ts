@@ -26,7 +26,7 @@ export interface BootstrapOutcome {
 
 interface RawProjectField {
   __typename?: string; id?: string; name?: string; dataType?: string;
-  databaseId?: number | null; fullDatabaseId?: string | null;
+  databaseId?: number | null;
   options?: Array<{ id?: string; name?: string; color?: string; description?: string | null }>;
 }
 interface RawProjectResponse { repositoryOwner?: { projectV2?: { id: string; title: string; fields: { nodes: Array<RawProjectField | null> } } | null } | null; }
@@ -40,7 +40,7 @@ query BootstrapProject($owner: String!, $number: Int!) {
         fields(first: 100) {
           nodes {
             __typename
-            ... on ProjectV2FieldCommon { id name dataType databaseId fullDatabaseId }
+            ... on ProjectV2FieldCommon { id name dataType databaseId }
             ... on ProjectV2SingleSelectField { options { id name color description } }
           }
         }
@@ -147,7 +147,7 @@ export function planProjectBootstrap(existing: ExistingBootstrapField[], desired
 function classifyMutability(node: RawProjectField): BootstrapFieldMutability {
   if (!node.__typename) return "custom";
   if (node.__typename === "ProjectV2IterationField") return "derived";
-  if (node.databaseId != null || node.fullDatabaseId != null) return "custom";
+  if (node.databaseId != null) return "custom";
   if (node.__typename === "ProjectV2SingleSelectField" || node.__typename === "ProjectV2Field") return "derived";
   return "ambiguous";
 }
