@@ -36,7 +36,11 @@ apply-enabled: true
 github-token: ${{ secrets.PROJECT_TOKEN }}
 ```
 
-Yukh never deletes fields or options. A same-name field with an incompatible data type fails closed. Mutations are ordered and stop on the first failure, returning the remaining operations for a safe retry.
+Yukh never deletes fields or options. Before apply, discovery classifies every same-name existing field. Only fields proven to be editable custom Project fields may be updated. Fields derived from issues or pull requests, and fields whose mutability is ambiguous, invalidate the complete plan before any mutation runs.
+
+A diagnostic such as `non_custom_project_field` means the policy must map to a dedicated custom field, for example `Work Priority` rather than a GitHub-derived `Priority` field. A same-name custom field with an incompatible type also fails closed.
+
+All predictable validation completes before apply begins. Unexpected API failures can still leave already-completed operations, and Yukh reports the ordered remaining operations for a safe retry.
 
 ## Idempotency acceptance
 
@@ -85,4 +89,4 @@ jobs:
           github-token: ${{ secrets.PROJECT_TOKEN }}
 ```
 
-Use the released version containing this capability rather than the illustrative version above until the release is published.
+Use the latest verified patch release containing the non-custom field preflight before running apply against a Project that exposes issue-derived fields.
