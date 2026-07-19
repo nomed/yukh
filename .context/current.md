@@ -5,6 +5,7 @@
 - Yukh is released and consumes its own GitHub Action.
 - Self-dogfooding completed on `nomed/yukh#30` using Project `#5`.
 - A real apply succeeded and the identical second apply produced zero operations, no remaining drift, and no diagnostics.
+- RGK validated fail-closed Project discovery, canonical Status bootstrap, external Project adoption, and idempotent reconciliation.
 - The self workflows keep the default `GITHUB_TOKEN` read-only and use `YUKH_PROJECT_TOKEN` only for controlled apply.
 - UC Rust adoption material is isolated under `examples/uc-rust/`.
 
@@ -14,22 +15,26 @@
 - repository policy loading and desired-state construction;
 - GitHub Project v2 discovery and deterministic reconciliation planning;
 - controlled, retryable, idempotent Project-field application;
+- Project schema bootstrap with safe preflight and canonical Status options;
 - parent/sub-issue and dependency reconciliation;
 - composite GitHub Action runtime with dry-run and apply modes;
 - release-please semantic releases and Action version aliases;
 - CI type checking, tests, and package verification;
 - installation, permission, rollback, removal, and dogfooding documentation.
 
-## Current documentation audit
+## Current work — issue #56
 
-- replace stale README foundation-only status;
-- remove broken references such as the absent `docs/vision.md`;
-- record completed dogfooding evidence;
-- align release and adoption guidance with the implemented workflows.
+- define an opt-in canonical Project core: Work Type, Work Priority, Size, Estimate, Status, and Iteration;
+- classify effective and discovered fields as core, extension, external, or derived;
+- support repository-specific fields such as Area through explicit policy extensions;
+- restrict bootstrap and issue reconciliation to the effective owned schema;
+- preserve unrelated Project fields and options;
+- maintain legacy policy behavior until canonical core bootstrap is explicitly enabled;
+- publish migration guidance for Yukh, RGK, UC Rust, and future consumers.
 
 ## Next
 
-- complete and merge the post-dogfooding documentation alignment;
-- start external adoption under `nomed/uc-rust#69`;
-- run UC Rust in dry-run first and accept its migration gate before enabling apply;
-- treat repository labels, milestones, and other unsupported legacy synchronization behavior as explicit future capabilities rather than implied current support.
+- complete CI and review for the canonical schema implementation;
+- publish the corresponding minor release;
+- migrate consumer policies deliberately rather than renaming Project fields automatically;
+- continue the UC Rust adoption gate using the released canonical policy model.
