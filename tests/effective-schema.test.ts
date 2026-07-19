@@ -103,7 +103,7 @@ describe("effective Project schema", () => {
       "Work Type",
     ]);
 
-    const desired = buildDesiredProjectState(contract.value, policy.value);
+    const desired = buildDesiredProjectState(contract.contract, policy.value);
     expect(desired.ok).toBe(true);
     if (!desired.ok) return;
     expect(desired.value.fields).toEqual({
