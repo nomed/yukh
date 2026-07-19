@@ -47,20 +47,20 @@ export interface BootstrapOutcome {
   summary: string;
 }
 
+interface RawProjectField {
+  __typename: string;
+  id?: string;
+  name?: string;
+  dataType?: string;
+  options?: Array<{ id?: string; name?: string; color?: string; description?: string | null }>;
+}
+
 interface RawProjectResponse {
   repositoryOwner?: {
     projectV2?: {
       id: string;
       title: string;
-      fields: {
-        nodes: Array<{
-          __typename: string;
-          id?: string;
-          name?: string;
-          dataType?: string;
-          options?: Array<{ id?: string; name?: string; color?: string; description?: string | null }>;
-        } | null>;
-      };
+      fields: { nodes: Array<RawProjectField | null> };
     } | null;
   } | null;
 }
@@ -70,15 +70,12 @@ query BootstrapProject($owner: String!, $number: Int!) {
   repositoryOwner(login: $owner) {
     ... on ProjectV2Owner {
       projectV2(number: $number) {
-        id
-        title
+        id title
         fields(first: 100) {
           nodes {
             __typename
             ... on ProjectV2FieldCommon { id name dataType }
-            ... on ProjectV2SingleSelectField {
-              options { id name color description }
-            }
+            ... on ProjectV2SingleSelectField { options { id name color description } }
           }
         }
       }
@@ -116,7 +113,7 @@ export function desiredProjectSchema(policy: ProjectPolicy): { fields: Bootstrap
   for (const [logicalName, rule] of Object.entries(policy.fields).sort(([a], [b]) => a.localeCompare(b))) {
     if (!rule || rule.derived || logicalName === "status" || logicalName === "iteration") continue;
 
-    let spec: BootstrapFieldSpec | undefined;
+    let spec: BootstrapFieldSpec;
     if (rule.type === "number") {
       spec = { name: rule.projectField, dataType: "NUMBER", options: [] };
     } else if (Object.keys(rule.values).length > 0) {
@@ -138,11 +135,7 @@ export function desiredProjectSchema(policy: ProjectPolicy): { fields: Bootstrap
     const key = spec.name.toLowerCase();
     const existing = byName.get(key);
     if (existing && existing.dataType !== spec.dataType) {
-      diagnostics.push(diagnostic(
-        "conflicting_bootstrap_mapping",
-        `Multiple policy rules map '${spec.name}' to incompatible field types`,
-        `fields.${logicalName}`,
-      ));
+      diagnostics.push(diagnostic("conflicting_bootstrap_mapping", `Multiple policy rules map '${spec.name}' to incompatible field types`, `fields.${logicalName}`));
       continue;
     }
     if (existing?.dataType === "SINGLE_SELECT") {
@@ -169,7 +162,12 @@ export function mergeBootstrapOptions(existing: BootstrapOption[], desired: Boot
   for (const desiredOption of desired) {
     const found = remaining.get(desiredOption.name.toLowerCase());
     if (found) {
-      options.push({ id: found.id, name: found.name, color: found.color || desiredOption.color, description: found.description ?? "" });
+      options.push({
+        ...(found.id !== undefined ? { id: found.id } : {}),
+        name: found.name,
+        color: found.color || desiredOption.color,
+        description: found.description,
+      });
       remaining.delete(desiredOption.name.toLowerCase());
     } else {
       options.push({ ...desiredOption });
@@ -177,9 +175,9 @@ export function mergeBootstrapOptions(existing: BootstrapOption[], desired: Boot
     }
   }
 
-  const preserved = [...remaining.values()].sort((a, b) => a.name.localeCompare(b.name));
-  options.push(...preserved);
-  return { changed: missing.length > 0, options, missing, preserved: preserved.map(({ name }) => name) };
+  const preservedOptions = [...remaining.values()].sort((a, b) => a.name.localeCompare(b.name));
+  options.push(...preservedOptions);
+  return { changed: missing.length > 0, options, missing, preserved: preservedOptions.map(({ name }) => name) };
 }
 
 export function planProjectBootstrap(existing: ExistingBootstrapField[], desired: BootstrapFieldSpec[]): {
@@ -199,38 +197,32 @@ export function planProjectBootstrap(existing: ExistingBootstrapField[], desired
       continue;
     }
     if (current.dataType !== field.dataType) {
-      diagnostics.push(diagnostic(
-        "incompatible_project_field_type",
-        `Project field '${field.name}' has type ${current.dataType}, but policy requires ${field.dataType}`,
-        `fields.${field.name}`,
-      ));
+      diagnostics.push(diagnostic("incompatible_project_field_type", `Project field '${field.name}' has type ${current.dataType}, but policy requires ${field.dataType}`, `fields.${field.name}`));
       continue;
     }
     if (field.dataType === "SINGLE_SELECT") {
       const merged = mergeBootstrapOptions(current.options, field.options);
-      if (merged.changed) {
-        operations.push({ kind: "update-options", field, fieldId: current.id, options: merged.options, missing: merged.missing, preserved: merged.preserved });
-      } else unchanged.push(field.name);
+      if (merged.changed) operations.push({ kind: "update-options", field, fieldId: current.id, options: merged.options, missing: merged.missing, preserved: merged.preserved });
+      else unchanged.push(field.name);
     } else unchanged.push(field.name);
   }
 
   return { ok: diagnostics.length === 0, plan: { operations, unchanged: unchanged.sort() }, diagnostics };
 }
 
-function normalizeFields(nodes: RawProjectResponse["repositoryOwner"] extends infer _ ? Array<any> : never): ExistingBootstrapField[] {
-  return (nodes as Array<any>).flatMap((node) => {
+function normalizeFields(nodes: Array<RawProjectField | null>): ExistingBootstrapField[] {
+  return nodes.flatMap((node): ExistingBootstrapField[] => {
     if (!node?.id || !node.name || !node.dataType) return [];
-    return [{
-      id: node.id,
-      name: node.name,
-      dataType: node.dataType,
-      options: (node.options ?? []).flatMap((option: any) => option?.name ? [{
-        ...(option.id ? { id: option.id } : {}),
+    const options: BootstrapOption[] = (node.options ?? []).flatMap((option): BootstrapOption[] => {
+      if (!option.name) return [];
+      return [{
+        ...(option.id !== undefined ? { id: option.id } : {}),
         name: option.name,
         color: option.color ?? "GRAY",
         description: option.description ?? "",
-      }] : []),
-    }];
+      }];
+    });
+    return [{ id: node.id, name: node.name, dataType: node.dataType, options }];
   });
 }
 
@@ -260,66 +252,55 @@ export async function runProjectBootstrap(input: {
   if (mode === "apply" && !applyEnabled) diagnostics.push(diagnostic("apply_not_enabled", "bootstrap apply requires apply-enabled=true", "apply-enabled"));
 
   const emptyPlan: BootstrapPlan = { operations: [], unchanged: [] };
-  if (!policyResult.ok || diagnostics.length > 0) return outcome(mode, null, emptyPlan, 0, [], diagnostics);
+  if (!policyResult.ok || diagnostics.length > 0) return buildOutcome(mode, null, emptyPlan, 0, [], diagnostics);
 
   const desired = desiredProjectSchema(policyResult.value);
   diagnostics.push(...desired.diagnostics);
-  if (diagnostics.length > 0) return outcome(mode, null, emptyPlan, 0, [], diagnostics);
+  if (diagnostics.length > 0) return buildOutcome(mode, null, emptyPlan, 0, [], diagnostics);
 
-  let project: { id: string; title: string; owner: string; number: number };
+  let project: NonNullable<BootstrapOutcome["project"]>;
   let fields: ExistingBootstrapField[];
   try {
-    const response = await transport.execute<RawProjectResponse>(DISCOVER_PROJECT, {
-      owner: policyResult.value.project.owner,
-      number: input.projectNumber,
-    });
+    const response = await transport.execute<RawProjectResponse>(DISCOVER_PROJECT, { owner: policyResult.value.project.owner, number: input.projectNumber });
     const node = response.repositoryOwner?.projectV2;
-    if (!node) return outcome(mode, null, emptyPlan, 0, [], [diagnostic("project_not_found", `Project #${input.projectNumber} was not found for '${policyResult.value.project.owner}'`, "project")]);
+    if (!node) return buildOutcome(mode, null, emptyPlan, 0, [], [diagnostic("project_not_found", `Project #${input.projectNumber} was not found for '${policyResult.value.project.owner}'`, "project")]);
     project = { id: node.id, title: node.title, owner: policyResult.value.project.owner, number: input.projectNumber };
     fields = normalizeFields(node.fields.nodes);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const code = /resource not accessible|forbidden|permission/i.test(message) ? "project_permission_denied" : "project_api_error";
-    return outcome(mode, null, emptyPlan, 0, [], [diagnostic(code, `Project bootstrap discovery failed: ${message}`, "project")]);
+    return buildOutcome(mode, null, emptyPlan, 0, [], [diagnostic(code, `Project bootstrap discovery failed: ${message}`, "project")]);
   }
 
   const planned = planProjectBootstrap(fields, desired.fields);
-  if (!planned.ok) return outcome(mode, project, planned.plan, 0, planned.plan.operations, planned.diagnostics);
-  if (mode === "dry-run") return outcome(mode, project, planned.plan, 0, planned.plan.operations, []);
+  if (!planned.ok) return buildOutcome(mode, project, planned.plan, 0, planned.plan.operations, planned.diagnostics);
+  if (mode === "dry-run") return buildOutcome(mode, project, planned.plan, 0, planned.plan.operations, []);
 
   let applied = 0;
   for (let index = 0; index < planned.plan.operations.length; index += 1) {
     const operation = planned.plan.operations[index]!;
     try {
       if (operation.kind === "create-field") {
-        await transport.execute(CREATE_FIELD, {
+        await transport.execute<unknown>(CREATE_FIELD, {
           projectId: project.id,
           name: operation.field.name,
           dataType: operation.field.dataType,
           options: operation.field.dataType === "SINGLE_SELECT" ? operation.field.options : null,
         });
       } else {
-        await transport.execute(UPDATE_OPTIONS, { fieldId: operation.fieldId, options: operation.options });
+        await transport.execute<unknown>(UPDATE_OPTIONS, { fieldId: operation.fieldId, options: operation.options });
       }
       applied += 1;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      const remaining = planned.plan.operations.slice(index);
-      return outcome(mode, project, planned.plan, applied, remaining, [diagnostic("project_bootstrap_mutation_failed", `Bootstrap mutation failed: ${message}`, `operations.${index}`)]);
+      return buildOutcome(mode, project, planned.plan, applied, planned.plan.operations.slice(index), [diagnostic("project_bootstrap_mutation_failed", `Bootstrap mutation failed: ${message}`, `operations.${index}`)]);
     }
   }
 
-  return outcome(mode, project, planned.plan, applied, [], []);
+  return buildOutcome(mode, project, planned.plan, applied, [], []);
 }
 
-function outcome(
-  mode: BootstrapMode,
-  project: BootstrapOutcome["project"],
-  plan: BootstrapPlan,
-  applied: number,
-  remaining: BootstrapOperation[],
-  diagnostics: ContractDiagnostic[],
-): BootstrapOutcome {
+function buildOutcome(mode: BootstrapMode, project: BootstrapOutcome["project"], plan: BootstrapPlan, applied: number, remaining: BootstrapOperation[], diagnostics: ContractDiagnostic[]): BootstrapOutcome {
   const ok = diagnostics.length === 0 && (mode === "dry-run" || remaining.length === 0);
   const lines = project ? [`Project: ${project.title} (${project.owner}#${project.number})`, ...render(plan)] : [];
   if (mode === "dry-run" && diagnostics.length === 0) lines.push("Dry run only: no changes applied.");
@@ -327,8 +308,7 @@ function outcome(
   for (const item of diagnostics) lines.push(`ERROR ${item.path}: ${item.message}`);
   const payload = { status: ok ? (mode === "dry-run" ? "dry-run" : "success") : "error", operation: "bootstrap-project", mode, applied, remaining, diagnostics };
   const summary = [
-    "# Yukh Project bootstrap",
-    "",
+    "# Yukh Project bootstrap", "",
     `**Mode:** ${mode}`,
     `**Project:** ${project ? `${project.owner}#${project.number} — ${project.title}` : "unresolved"}`,
     `**Planned operations:** ${plan.operations.length}`,
