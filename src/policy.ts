@@ -221,7 +221,7 @@ export function buildDesiredProjectState(contract: IssueContract, policy: Projec
   }
   let iteration: DesiredProjectState["iteration"] = { mode: "none" };
   const iterationField = effective.fields.find(({ logicalName }) => logicalName === "iteration");
-  if (iterationField && isYukhManagedField(iterationField)) {
+  if (!iterationField || isYukhManagedField(iterationField)) {
     if (contract.iteration === "auto") {
       if (!policy.scheduling.automaticIteration) diagnostics.push(diag("automatic_iteration_disabled", "iteration auto is disabled by repository policy", "iteration"));
       else iteration = { mode: "auto" };
