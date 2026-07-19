@@ -30,6 +30,7 @@ Converged GitHub Project state
 Yukh currently supports:
 
 - validating hidden YAML issue contracts against a repository policy;
+- bootstrapping a canonical GitHub Project schema plus repository extensions;
 - adding governed issues to a configured GitHub Project v2;
 - reconciling supported Project fields;
 - planning and applying parent/sub-issue and dependency relationships;
@@ -63,9 +64,31 @@ The repository policy under `.yukh/project.yaml` defines the accepted values and
 
 See [`spec/issue-contract.md`](spec/issue-contract.md) for the contract specification.
 
+## Canonical Project schema
+
+Repositories may enable Yukh's canonical core schema and add explicit local extensions:
+
+```yaml
+bootstrap:
+  core:
+    enabled: true
+  extensions:
+    fields:
+      area:
+        project_field: Area
+        required: true
+        values:
+          governance: Governance
+          runtime: Runtime
+```
+
+The canonical core uses `Work Type`, `Work Priority`, `Size`, `Estimate`, built-in `Status`, and GitHub-managed `Iteration`. Unrelated Project fields are classified as external, ignored, and preserved.
+
+See [`docs/project-schema.md`](docs/project-schema.md) for ownership classes, canonical values, migration, and extension rules.
+
 ## Installation
 
-1. Copy [`examples/minimal/project.yaml`](examples/minimal/project.yaml) to `.yukh/project.yaml` in the consumer repository and adapt the mappings.
+1. Copy [`examples/minimal/project.yaml`](examples/minimal/project.yaml) to `.yukh/project.yaml` in the consumer repository and adapt the extension values.
 2. Add a workflow that checks out the consumer repository and invokes a pinned Yukh release.
 3. Start in `dry-run` with read-only repository permissions.
 4. Add a dedicated `YUKH_PROJECT_TOKEN` secret only for controlled apply workflows when the selected Project requires broader access than `GITHUB_TOKEN` provides.
@@ -74,7 +97,7 @@ Example action step:
 
 ```yaml
 - uses: actions/checkout@v4
-- uses: nomed/yukh@v0.2.1
+- uses: nomed/yukh@v0.4.0
   with:
     issue-number: ${{ github.event.issue.number }}
     project-number: ${{ vars.YUKH_PROJECT_NUMBER }}
@@ -103,19 +126,18 @@ Yukh is the first repository to consume its own released action. The self-hosted
 - a second identical apply reporting `Applied 0 operation(s)`;
 - `remaining: []` and no diagnostics.
 
-UC Rust is the first planned external adopter. Its adoption fixture is maintained under [`examples/uc-rust/`](examples/uc-rust/).
+RGK has also validated Project bootstrap, canonical `Status`, fail-closed field classification, and idempotent issue reconciliation on a live external Project. UC Rust is maintained as the first `nomed` external-adoption fixture under [`examples/uc-rust/`](examples/uc-rust/).
 
 ## Repository guide
 
 - [`docs/architecture.md`](docs/architecture.md) — controller flow and safety rules;
+- [`docs/project-schema.md`](docs/project-schema.md) — canonical core, ownership, extensions, and migration;
 - [`docs/packaging-and-releases.md`](docs/packaging-and-releases.md) — installation and release model;
 - [`docs/dogfooding.md`](docs/dogfooding.md) — self-hosting evidence, authentication, rollback, and handoff;
 - [`spec/issue-contract.md`](spec/issue-contract.md) — issue contract format;
-- [`examples/minimal/project.yaml`](examples/minimal/project.yaml) — minimal consumer policy;
-- [`examples/uc-rust/`](examples/uc-rust/) — first external-adoption fixture.
+- [`examples/minimal/project.yaml`](examples/minimal/project.yaml) — minimal canonical consumer policy;
+- [`examples/uc-rust/`](examples/uc-rust/) — external-adoption fixture.
 
 ## Status
 
-The parser, policy loader, Project discovery, deterministic planning, controlled apply path, relationship reconciliation, packaging, and release automation are implemented and covered by CI. Self-dogfooding and apply idempotency have been proven on the live Yukh repository.
-
-The next adoption milestone is `nomed/uc-rust#69`.
+The parser, policy loader, Project discovery, canonical schema bootstrap, deterministic planning, controlled apply path, relationship reconciliation, packaging, and release automation are implemented and covered by CI. Self-dogfooding, live external bootstrap, and apply idempotency have been proven.
