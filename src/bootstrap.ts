@@ -4,6 +4,7 @@ import { loadProjectPolicy, type ProjectPolicy } from "./policy.js";
 
 export type BootstrapMode = "dry-run" | "apply";
 export type BootstrapFieldType = "SINGLE_SELECT" | "NUMBER";
+export type BootstrapFieldMutability = "custom" | "derived" | "ambiguous";
 
 export interface BootstrapOption {
   id?: string;
@@ -23,6 +24,8 @@ export interface ExistingBootstrapField {
   name: string;
   dataType: string;
   options: BootstrapOption[];
+  typename: string;
+  mutability: BootstrapFieldMutability;
 }
 
 export type BootstrapOperation =
@@ -52,6 +55,8 @@ interface RawProjectField {
   id?: string;
   name?: string;
   dataType?: string;
+  databaseId?: number | null;
+  fullDatabaseId?: string | null;
   options?: Array<{ id?: string; name?: string; color?: string; description?: string | null }>;
 }
 
@@ -74,7 +79,7 @@ query BootstrapProject($owner: String!, $number: Int!) {
         fields(first: 100) {
           nodes {
             __typename
-            ... on ProjectV2FieldCommon { id name dataType }
+            ... on ProjectV2FieldCommon { id name dataType databaseId fullDatabaseId }
             ... on ProjectV2SingleSelectField { options { id name color description } }
           }
         }
@@ -186,14 +191,24 @@ export function planProjectBootstrap(existing: ExistingBootstrapField[], desired
   diagnostics: ContractDiagnostic[];
 } {
   const diagnostics: ContractDiagnostic[] = [];
-  const operations: BootstrapOperation[] = [];
+  const candidateOperations: BootstrapOperation[] = [];
   const unchanged: string[] = [];
   const byName = new Map(existing.map((field) => [field.name.toLowerCase(), field]));
 
   for (const field of desired) {
     const current = byName.get(field.name.toLowerCase());
     if (!current) {
-      operations.push({ kind: "create-field", field });
+      candidateOperations.push({ kind: "create-field", field });
+      continue;
+    }
+    if (current.mutability !== "custom") {
+      diagnostics.push(diagnostic(
+        current.mutability === "derived" ? "non_custom_project_field" : "ambiguous_project_field",
+        current.mutability === "derived"
+          ? `Project field '${field.name}' is derived from issues or pull requests and cannot be updated by Project schema bootstrap; map the policy to a dedicated custom field`
+          : `Project field '${field.name}' cannot be proven to be an editable custom field; map the policy to a dedicated custom field`,
+        `fields.${field.name}`,
+      ));
       continue;
     }
     if (current.dataType !== field.dataType) {
@@ -202,12 +217,22 @@ export function planProjectBootstrap(existing: ExistingBootstrapField[], desired
     }
     if (field.dataType === "SINGLE_SELECT") {
       const merged = mergeBootstrapOptions(current.options, field.options);
-      if (merged.changed) operations.push({ kind: "update-options", field, fieldId: current.id, options: merged.options, missing: merged.missing, preserved: merged.preserved });
+      if (merged.changed) candidateOperations.push({ kind: "update-options", field, fieldId: current.id, options: merged.options, missing: merged.missing, preserved: merged.preserved });
       else unchanged.push(field.name);
     } else unchanged.push(field.name);
   }
 
-  return { ok: diagnostics.length === 0, plan: { operations, unchanged: unchanged.sort() }, diagnostics };
+  if (diagnostics.length > 0) {
+    return { ok: false, plan: { operations: [], unchanged: [] }, diagnostics };
+  }
+  return { ok: true, plan: { operations: candidateOperations, unchanged: unchanged.sort() }, diagnostics: [] };
+}
+
+function classifyMutability(node: RawProjectField): BootstrapFieldMutability {
+  if (node.__typename === "ProjectV2IterationField") return "derived";
+  if (node.databaseId != null || node.fullDatabaseId != null) return "custom";
+  if (node.__typename === "ProjectV2SingleSelectField" || node.__typename === "ProjectV2Field") return "derived";
+  return "ambiguous";
 }
 
 function normalizeFields(nodes: Array<RawProjectField | null>): ExistingBootstrapField[] {
@@ -222,7 +247,14 @@ function normalizeFields(nodes: Array<RawProjectField | null>): ExistingBootstra
         description: option.description ?? "",
       }];
     });
-    return [{ id: node.id, name: node.name, dataType: node.dataType, options }];
+    return [{
+      id: node.id,
+      name: node.name,
+      dataType: node.dataType,
+      options,
+      typename: node.__typename,
+      mutability: classifyMutability(node),
+    }];
   });
 }
 
@@ -273,7 +305,7 @@ export async function runProjectBootstrap(input: {
   }
 
   const planned = planProjectBootstrap(fields, desired.fields);
-  if (!planned.ok) return buildOutcome(mode, project, planned.plan, 0, planned.plan.operations, planned.diagnostics);
+  if (!planned.ok) return buildOutcome(mode, project, planned.plan, 0, [], planned.diagnostics);
   if (mode === "dry-run") return buildOutcome(mode, project, planned.plan, 0, planned.plan.operations, []);
 
   let applied = 0;
