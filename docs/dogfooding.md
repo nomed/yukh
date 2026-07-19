@@ -1,31 +1,42 @@
 # Yukh dogfooding
 
-Yukh is the first repository to run its own released action. UC Rust remains the first external adopter.
+Yukh is the first repository to run its own released action. UC Rust is the first planned external adopter.
 
 ## Repository settings
 
-1. Set repository variable `YUKH_PROJECT_NUMBER` to the Project v2 number used by Yukh.
-2. Keep default workflow permissions read-only.
-3. Allow the Yukh tag policy you intend to support in production: `nomed/yukh@latest`, `@v0`, `@v0.1`, `@v0.1.0`, or a commit SHA, plus the official GitHub actions used by the reusable workflow.
-4. Configure required CI checks on protected branches.
-5. Keep issue reconciliation serialized by repository and issue number.
+1. Set `YUKH_PROJECT_NUMBER` to the selected Project v2 number.
+2. Keep the default workflow token read-only.
+3. Use `YUKH_PROJECT_TOKEN` only for controlled apply.
+4. Serialize reconciliation by repository and issue number.
+
+## Verified result
+
+Self-dogfooding completed on `nomed/yukh#30` using Project `#5`.
+
+- the released action resolved successfully;
+- the first real apply completed successfully;
+- the identical second apply reported `Applied 0 operation(s)`;
+- the result contained no remaining drift and no diagnostics.
+
+Issue `#30` is closed as completed.
+
+## Procedure for future releases
+
+1. Pin the candidate full semantic-version tag or commit SHA.
+2. Run dry-run on a representative governed issue.
+3. Review the plan and diagnostics.
+4. Run controlled apply with explicit confirmation.
+5. Repeat the identical apply and require zero operations, no remaining drift, and no diagnostics.
+6. Record workflow URLs without recording secret values.
 
 ## Authentication
 
-Dry-run uses read-only repository permissions. Apply uses the separate `YUKH_PROJECT_TOKEN` secret. Prefer a GitHub App installation token with access to this repository and the selected Project; use a fine-grained PAT only as a temporary fallback.
-
-## Evidence procedure
-
-1. Confirm that the full release tag `v0.1.0` resolves to the released action revision.
-2. Open or edit an issue containing a valid Yukh contract and capture the dry-run workflow URL.
-3. Run **Yukh self apply** for the issue with `confirm_apply=true` and capture the workflow URL and resulting Project fields.
-4. Run the same apply again and verify `Applied operations: 0` and `No drift detected`.
-5. Record token type, Project number, repository Actions settings, and any upstream gaps in issue #30 without recording secret values.
+Dry-run uses read-only repository permissions. Apply uses the separate Project-capable token. Prefer a GitHub App installation token; use a narrowly scoped fine-grained PAT only as a fallback.
 
 ## Rollback and removal
 
-Rollback by pinning the previous immutable release. To remove Yukh, disable both self workflows, delete the workflow files and `.yukh/project.yaml`, revoke the App installation or secret, and retain issue and Project data as-is.
+Rollback by restoring the previous known-good immutable release. To remove Yukh, disable the workflows, delete the workflow files and `.yukh/project.yaml`, revoke the App installation or secret, and retain issue and Project data as-is.
 
 ## UC Rust handoff
 
-After dogfooding is accepted, update `examples/uc-rust/` with any lessons learned and start `nomed/uc-rust#69` using the verified immutable release.
+The adoption material is maintained under `examples/uc-rust/`. UC Rust proceeds under `nomed/uc-rust#69`, beginning with dry-run and moving to apply only after its migration gate is accepted.

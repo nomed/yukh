@@ -2,9 +2,9 @@
 
 Yukh runs in `dry-run` mode by default. The connected runtime resolves the issue and GitHub Project through GraphQL, validates the contract and policy, discovers observed state, builds a deterministic reconciliation plan, and writes a concise GitHub Step Summary.
 
-Yukh publishes the standard GitHub Action refs `latest`, `vX`, `vX.Y`, and `vX.Y.Z`. Use the ref that matches your upgrade policy: `vX.Y.Z` or a commit SHA for immutable pinning, `vX.Y` for patch updates within a minor line, `vX` for updates within a major line, or `latest` to track the newest release.
+Yukh publishes `latest`, `vX`, `vX.Y`, and full `vX.Y.Z` tags. Use a full semantic-version tag or commit SHA for immutable pinning.
 
-## Reusable workflow
+## Composite action
 
 ```yaml
 name: Reconcile issue
@@ -13,58 +13,62 @@ on:
   issues:
     types: [opened, edited, reopened]
 
+permissions:
+  contents: read
+  issues: read
+
 jobs:
   yukh:
-    uses: nomed/yukh/.github/workflows/yukh-reconcile.yml@v0.1.0
-    with:
-      issue_number: ${{ github.event.issue.number }}
-      project_number: 1
-      mode: dry-run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: nomed/yukh@v0.2.1
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          project-number: ${{ vars.YUKH_PROJECT_NUMBER }}
+          policy-path: .yukh/project.yaml
+          mode: dry-run
 ```
 
-Runs are serialized by repository and issue number, so repeated issue events do not execute conflicting reconciliation concurrently.
+Serialize runs by repository and issue number when issue events may overlap.
 
-## Dry-run permissions
+## Apply mode
+
+Apply is opt-in and requires both `mode: apply` and `apply-enabled: true`, together with a dedicated token that can access the target Project.
 
 ```yaml
 permissions:
   contents: read
   issues: read
-  repository-projects: read
-```
 
-Dry-run performs issue lookup, Project discovery, planning, and reporting without GraphQL mutations.
-
-## Apply mode
-
-Apply is opt-in and requires both `mode: apply` and `apply_enabled: true`.
-
-```yaml
 jobs:
   yukh:
-    uses: nomed/yukh/.github/workflows/yukh-reconcile.yml@v0.1.0
-    with:
-      issue_number: ${{ github.event.issue.number }}
-      project_number: 1
-      mode: apply
-      apply_enabled: true
-    secrets:
-      yukh_token: ${{ secrets.YUKH_PROJECT_TOKEN }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: nomed/yukh@v0.2.1
+        with:
+          issue-number: ${{ inputs.issue_number }}
+          project-number: ${{ vars.YUKH_PROJECT_NUMBER }}
+          policy-path: .yukh/project.yaml
+          mode: apply
+          apply-enabled: true
+          github-token: ${{ secrets.YUKH_PROJECT_TOKEN }}
 ```
 
-For repository Projects, grant `repository-projects: write`. Organization or user Projects generally require a GitHub App installation token or a narrowly scoped fine-grained PAT with explicit access to the target Project.
+The default `GITHUB_TOKEN` remains read-only. User- or organization-owned Projects generally require a GitHub App installation token or narrowly scoped fine-grained PAT with explicit Project access.
 
-Apply resolves the issue node ID, discovers fields, options, iterations and the existing item, then applies only drift. A repeated apply against matching state performs no writes.
+Apply resolves the issue, discovers fields, options, iterations and existing membership, then applies only drift. A repeated apply against matching state performs no writes.
 
 ## Public and private action repositories
 
-For public Yukh, enable Actions in the consumer and allow the chosen `nomed/yukh` release ref. If Yukh is private, configure **Yukh → Settings → Actions → General → Access** for the intended repositories or organization and ensure the consumer permits the private action. Cross-account private reuse depends on GitHub plan and account topology.
+For public Yukh, enable Actions in the consumer and allow the chosen `nomed/yukh` release ref. If Yukh is private, configure Action access for the intended repositories or organization and ensure the consumer permits the private action. Cross-account private reuse depends on GitHub plan and account topology.
 
-See [Packaging, releases, and adoption](packaging-and-releases.md) for complete settings, upgrade, rollback and removal guidance.
+See [Packaging, releases, and adoption](packaging-and-releases.md) for settings, upgrade, rollback, and removal guidance.
 
 ## Outputs
 
-Every run prints human-readable and JSON output and writes a Step Summary containing issue, mode, planned/applied/remaining operation counts, retryability, status and diagnostics.
+Every run prints human-readable and JSON output and writes a Step Summary containing issue, mode, planned/applied/remaining operation counts, retryability, status, and diagnostics.
 
 ## Failure and retry behavior
 
@@ -74,8 +78,8 @@ Mutations run sequentially. On partial failure, the result preserves completed a
 
 - `invalid_repository`: use `owner/name` format.
 - `invalid_issue_number` or `invalid_project_number`: provide a positive integer.
-- `missing_policy`: ensure `.yukh/project.yaml` exists or set `policy_path`.
-- `apply_not_enabled`: set both `mode: apply` and `apply_enabled: true`.
+- `missing_policy`: ensure `.yukh/project.yaml` exists or set `policy-path`.
+- `apply_not_enabled`: set both `mode: apply` and `apply-enabled: true`.
 - `apply_token_missing` or `github_token_missing`: pass a token.
 - `github_permission_denied` or `project_permission_denied`: grant access to the issue repository and target Project.
-- `project_mutation_permission_denied`: use a write-capable token; the default `GITHUB_TOKEN` may not reach organization or user Projects.
+- `project_mutation_permission_denied`: use a Project-capable token.

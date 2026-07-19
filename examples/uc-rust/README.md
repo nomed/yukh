@@ -1,14 +1,14 @@
 # UC Rust external adoption fixture
 
-`nomed/uc-rust` is the first external adopter of Yukh after Yukh completes self-dogfooding.
+`nomed/uc-rust` is the first planned external adopter of Yukh. Yukh self-dogfooding has completed successfully, including a repeated apply with zero operations.
 
-The fixture contains the UC Rust policy, representative issue contracts, compatibility expectations, migration gate, and acceptance evidence. The installable repository policy is [`project.yaml`](project.yaml).
+The fixture contains the UC Rust policy, representative issue contracts, compatibility expectations, migration gate, and acceptance checklist. The installable repository policy is [`project.yaml`](project.yaml).
 
-## Sequence
+## Current sequence
 
-1. Yukh publishes and verifies an immutable release.
-2. Yukh consumes that release on its own repository and proves dry-run, apply, and idempotency.
-3. UC Rust installs the same pinned release under `nomed/uc-rust#69`.
+1. Yukh has published and verified versioned immutable releases.
+2. Yukh has consumed its own released action and proven apply idempotency.
+3. UC Rust installs a verified pinned release under `nomed/uc-rust#69`.
 4. UC Rust starts in dry-run and does not mutate Project metadata until its migration gate is accepted.
 
 ## Minimum compatibility surface
@@ -19,6 +19,8 @@ The fixture contains the UC Rust policy, representative issue contracts, compati
 - issue dependencies;
 - deterministic drift reporting and safe retry;
 - preservation of unmanaged human-owned values.
+
+Repository labels, milestones, and UC Rust legacy synchronization scripts are not implied capabilities of this first adoption fixture.
 
 ## Migration gate
 

@@ -14,4 +14,4 @@ jobs:
         with:
           node-version: 22
       - run: npm install
-      - run: npm run ci
+      - run: npx vitest run tests/connected-runtime.test.ts

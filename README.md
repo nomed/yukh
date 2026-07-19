@@ -2,95 +2,120 @@
 
 **Policy-driven GitHub Project reconciliation for agentic repositories.**
 
-Yukh lets AI agents create ordinary GitHub issues through the tools they already have, while a GitHub Action interprets a machine-readable contract embedded in each issue and organizes the repository's GitHub Project correctly.
+Yukh lets people and AI agents create ordinary GitHub issues while a GitHub Action interprets a hidden, machine-readable contract and reconciles the issue into a GitHub Project.
 
-GitHub Project is the operational control plane. Yukh is the policy and reconciliation layer.
+GitHub Issues remain the human and agent collaboration surface. GitHub Projects remain the operational control plane. Yukh provides the policy, validation, planning, and idempotent reconciliation layer between them.
 
 ```text
-Agent using GitHub tools
+Issue created or edited
         |
-        | creates or edits an issue
         v
-GitHub issue with hidden Yukh metadata
+Hidden Yukh contract parsed and validated
         |
-        | issue event
         v
-Yukh GitHub Action
+Current Project and relationship state discovered
         |
-        +-- validates conventions
-        +-- adds the issue to the configured Project
-        +-- sets Project custom fields
-        +-- creates parent/child relationships
-        +-- reconciles dependencies
-        +-- derives workflow status and readiness
-        +-- assigns iteration and roadmap data
         v
-Organized GitHub Project
+Deterministic reconciliation plan produced
+        |
+        +-- dry-run: report only
+        |
+        `-- apply: perform explicitly authorized mutations
+        v
+Converged GitHub Project state
 ```
 
-## The issue contract
+## Capabilities
 
-Agents write normal Markdown for people and include a hidden YAML block for automation:
+Yukh currently supports:
+
+- validating hidden YAML issue contracts against a repository policy;
+- adding governed issues to a configured GitHub Project v2;
+- reconciling supported Project fields;
+- planning and applying parent/sub-issue and dependency relationships;
+- dry-run diagnostics before mutation;
+- controlled apply mode with a dedicated Project-capable token;
+- idempotent retries, including a verified second apply with zero operations;
+- versioned GitHub Action releases generated through release-please.
+
+## Issue contract
+
+Agents and people write normal Markdown and add a hidden contract:
 
 ```markdown
 <!-- yukh
 schema: 1
-kind: gate
-area: governance
-priority: P0
-milestone: M0
-parent: 55
-depends_on: [56, 57, 58, 59, 60]
-blocks: [46, 47, 54]
-size: S
-estimate: 2
-iteration: auto
-execution: human
+kind: feature
+area: runtime
+priority: P1
+size: M
+estimate: 5
+parent: 12
+depends_on: [18, 21]
 -->
 
 ## Objective
 
-Approve the knowledge foundation before dependent work becomes ready.
+Implement the next reconciliation capability.
 ```
 
-The contract is intentionally compatible with constrained agent clients: an agent only needs permission to create or edit an issue. Yukh performs the Project operations those clients do not expose.
+The repository policy under `.yukh/project.yaml` defines the accepted values and their mapping to Project fields. Yukh does not invent missing planning information and does not overwrite unmanaged human-owned values unless the policy explicitly allows it.
 
-## What Yukh owns
+See [`spec/issue-contract.md`](spec/issue-contract.md) for the contract specification.
 
-- issue-contract specifications and templates;
-- repository conventions for titles, labels and relationships;
-- mapping from issue metadata and labels to GitHub Project fields;
-- workflow, dependency and readiness policies;
-- idempotent GitHub Action reconciliation;
-- diagnostics when an issue cannot be reconciled safely.
+## Installation
 
-## What Yukh does not own
+1. Copy [`examples/minimal/project.yaml`](examples/minimal/project.yaml) to `.yukh/project.yaml` in the consumer repository and adapt the mappings.
+2. Add a workflow that checks out the consumer repository and invokes a pinned Yukh release.
+3. Start in `dry-run` with read-only repository permissions.
+4. Add a dedicated `YUKH_PROJECT_TOKEN` secret only for controlled apply workflows when the selected Project requires broader access than `GITHUB_TOKEN` provides.
 
-- authoring the issue on behalf of the agent;
-- replacing GitHub Issues or GitHub Projects;
-- maintaining a separate authoritative knowledge graph;
-- acting as a project-management application;
-- silently inventing missing planning information.
+Example action step:
 
-## Repository direction
+```yaml
+- uses: actions/checkout@v4
+- uses: nomed/yukh@v0.2.1
+  with:
+    issue-number: ${{ github.event.issue.number }}
+    project-number: ${{ vars.YUKH_PROJECT_NUMBER }}
+    policy-path: .yukh/project.yaml
+    mode: dry-run
+```
 
-The first proving ground is `nomed/uc-rust`. The initial vertical slice is:
+Use a full semantic-version tag or commit SHA when an immutable pin is required. See [`docs/packaging-and-releases.md`](docs/packaging-and-releases.md) for release aliases, permissions, upgrade, rollback, and removal guidance.
 
-1. define the hidden issue metadata contract;
-2. define the UC Rust Project field mapping;
-3. validate an issue on `opened` and `edited` events;
-4. add it to the correct GitHub Project;
-5. populate Priority, Size, Estimate and Iteration;
-6. reconcile parent, child and dependency relationships;
-7. report missing or ambiguous metadata without destructive changes.
+## Apply safety
 
-See:
+Apply mode requires all of the following:
 
-- [`docs/vision.md`](docs/vision.md)
-- [`docs/architecture.md`](docs/architecture.md)
-- [`spec/issue-contract.md`](spec/issue-contract.md)
-- [`examples/uc-rust/issue-61.md`](examples/uc-rust/issue-61.md)
+- `mode: apply`;
+- `apply-enabled: true`;
+- a token with access to the target repository and Project;
+- a valid issue contract and policy mapping.
+
+Dry-run and apply build the same deterministic plan. Apply executes only supported operations and reports remaining drift and diagnostics explicitly.
+
+## Verified dogfooding
+
+Yukh is the first repository to consume its own released action. The self-hosted workflow was verified against issue `nomed/yukh#30` with:
+
+- a successful real apply;
+- a second identical apply reporting `Applied 0 operation(s)`;
+- `remaining: []` and no diagnostics.
+
+UC Rust is the first planned external adopter. Its adoption fixture is maintained under [`examples/uc-rust/`](examples/uc-rust/).
+
+## Repository guide
+
+- [`docs/architecture.md`](docs/architecture.md) — controller flow and safety rules;
+- [`docs/packaging-and-releases.md`](docs/packaging-and-releases.md) — installation and release model;
+- [`docs/dogfooding.md`](docs/dogfooding.md) — self-hosting evidence, authentication, rollback, and handoff;
+- [`spec/issue-contract.md`](spec/issue-contract.md) — issue contract format;
+- [`examples/minimal/project.yaml`](examples/minimal/project.yaml) — minimal consumer policy;
+- [`examples/uc-rust/`](examples/uc-rust/) — first external-adoption fixture.
 
 ## Status
 
-The repository has been reset to the product definition and contract-first foundation. No production-ready reconciler is claimed yet.
+The parser, policy loader, Project discovery, deterministic planning, controlled apply path, relationship reconciliation, packaging, and release automation are implemented and covered by CI. Self-dogfooding and apply idempotency have been proven on the live Yukh repository.
+
+The next adoption milestone is `nomed/uc-rust#69`.
