@@ -1,24 +1,35 @@
 # Current development context
 
-## Active issue
+## Current state
 
-- `#29 Implement versioned packaging and automated releases`
-- Branch: `feat/issue-29-versioned-packaging`
+- Yukh is released and consumes its own GitHub Action.
+- Self-dogfooding completed on `nomed/yukh#30` using Project `#5`.
+- A real apply succeeded and the identical second apply produced zero operations, no remaining drift, and no diagnostics.
+- The self workflows keep the default `GITHUB_TOKEN` read-only and use `YUKH_PROJECT_TOKEN` only for controlled apply.
+- UC Rust adoption material is isolated under `examples/uc-rust/`.
 
 ## Implemented
 
-- release-please configuration and manifest for semantic GitHub Releases.
-- Conventional Commit release flow and generated changelog foundation.
-- Package verification for all runtime files required by the composite action.
-- CI integration for type checking, tests, and package verification.
-- Immutable release-tag installation guidance.
-- Public/private repository Action settings and permission profiles.
-- Upgrade, rollback, compatibility, deprecation, removal, and troubleshooting guidance.
-- Minimal consumer policy and issue-contract examples.
+- hidden YAML issue-contract parsing and validation;
+- repository policy loading and desired-state construction;
+- GitHub Project v2 discovery and deterministic reconciliation planning;
+- controlled, retryable, idempotent Project-field application;
+- parent/sub-issue and dependency reconciliation;
+- composite GitHub Action runtime with dry-run and apply modes;
+- release-please semantic releases and Action version aliases;
+- CI type checking, tests, and package verification;
+- installation, permission, rollback, removal, and dogfooding documentation.
+
+## Current documentation audit
+
+- replace stale README foundation-only status;
+- remove broken references such as the absent `docs/vision.md`;
+- record completed dogfooding evidence;
+- align release and adoption guidance with the implemented workflows.
 
 ## Next
 
-- Merge the implementation PR.
-- Merge the generated release-please PR to create the first verified release.
-- Complete #30 by dogfooding the pinned release on Yukh itself.
-- Use UC Rust as the first external adopter under `nomed/uc-rust#69`.
+- complete and merge the post-dogfooding documentation alignment;
+- start external adoption under `nomed/uc-rust#69`;
+- run UC Rust in dry-run first and accept its migration gate before enabling apply;
+- treat repository labels, milestones, and other unsupported legacy synchronization behavior as explicit future capabilities rather than implied current support.
