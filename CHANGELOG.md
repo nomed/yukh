@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.1](https://github.com/nomed/yukh/compare/v0.3.0...v0.3.1) (2026-07-19)
+
+
+### Bug Fixes
+
+* keep planner API backward compatible ([9151ddb](https://github.com/nomed/yukh/commit/9151ddbecfb0a0e1935095753135904314ee63d6))
+* preflight non-custom Project fields atomically ([dd51f1d](https://github.com/nomed/yukh/commit/dd51f1dabd51e5b319268c7f55bcfdf8e7d1c0d9))
+* reject non-custom Project fields ([cf44b2d](https://github.com/nomed/yukh/commit/cf44b2d34a64bebdf4af803bc55216ea9b8b1077))
+
 ## [0.3.0](https://github.com/nomed/yukh/compare/v0.2.2...v0.3.0) (2026-07-19)
 
 
