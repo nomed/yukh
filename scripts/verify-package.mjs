@@ -22,8 +22,11 @@ if (!action.includes("src/action-cli.ts")) throw new Error("action.yml does not 
 if (!action.includes("github.action_path")) throw new Error("action.yml must resolve runtime files from github.action_path");
 if (action.includes("nomed/yukh@main")) throw new Error("action package must not depend on the moving main branch");
 
+const reusableWorkflow = await readFile(".github/workflows/yukh-reconcile.yml", "utf8");
+if (!reusableWorkflow.includes("uses: ./")) throw new Error("reusable workflow must invoke the checked-out local action");
+
 const releaseWorkflow = await readFile(".github/workflows/release-please.yml", "utf8");
-for (const snippet of [
+const requiredReleaseSnippets = [
   "id: release",
   "steps.release.outputs.release_created",
   "latest",
@@ -32,7 +35,9 @@ for (const snippet of [
   "git push origin \"refs/tags/$tag\" --force",
   "${{ steps.release.outputs.tag_name }}",
   "${{ steps.release.outputs.sha }}",
-]) {
+];
+
+for (const snippet of requiredReleaseSnippets) {
   if (!releaseWorkflow.includes(snippet)) throw new Error(`release workflow is missing required alias-tag logic: ${snippet}`);
 }
 
