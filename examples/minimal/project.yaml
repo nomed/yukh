@@ -9,26 +9,28 @@ contract:
   marker: yukh
   schema: 1
 
-fields:
-  kind:
-    project_field: Type
-    required: true
-    values:
-      feature: Feature
-      task: Task
-  area:
-    project_field: Area
-    required: true
-    values: {}
-  priority:
-    project_field: Priority
-    required: true
-    values:
-      P1: P1
-      P2: P2
-  estimate:
-    project_field: Estimate
-    type: number
+bootstrap:
+  core:
+    enabled: true
+  extensions:
+    fields:
+      area:
+        project_field: Area
+        required: true
+        values:
+          product: Product
+          platform: Platform
+
+workflow:
+  backlog_status: Backlog
+  ready_status: Ready
+  in_progress_status: In Progress
+  review_status: Review
+  blocked_status: Blocked
+  done_status: Done
+
+defaults:
+  execution: hybrid
 
 scheduling:
   automatic_iteration: false
