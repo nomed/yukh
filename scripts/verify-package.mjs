@@ -23,7 +23,15 @@ if (!action.includes("github.action_path")) throw new Error("action.yml must res
 if (action.includes("nomed/yukh@main")) throw new Error("action package must not depend on the moving main branch");
 
 const reusableWorkflow = await readFile(".github/workflows/yukh-reconcile.yml", "utf8");
-if (!reusableWorkflow.includes("uses: ./")) throw new Error("reusable workflow must invoke the checked-out local action");
+if (!/uses: nomed\/yukh@v\d+\.\d+\.\d+/.test(reusableWorkflow)) {
+  throw new Error("reusable workflow must invoke an immutable released Yukh action");
+}
+if (reusableWorkflow.includes("uses: ./")) {
+  throw new Error("external reusable workflow must not resolve the caller repository root as the Yukh action");
+}
+if (reusableWorkflow.includes("nomed/yukh@main")) {
+  throw new Error("reusable workflow must not depend on the moving main branch");
+}
 
 const releaseWorkflow = await readFile(".github/workflows/release-please.yml", "utf8");
 const requiredReleaseSnippets = [
