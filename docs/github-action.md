@@ -32,6 +32,25 @@ jobs:
 
 Serialize runs by repository and issue number when issue events may overlap.
 
+## Reusable workflow
+
+The reusable workflow keeps the consumer repository checked out for its policy, checks out the pinned Yukh release into a separate directory, and invokes that action explicitly. It never resolves `uses: ./` against the consumer repository.
+
+```yaml
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  yukh:
+    uses: nomed/yukh/.github/workflows/yukh-reconcile.yml@v0.2.1
+    with:
+      issue_number: ${{ github.event.issue.number }}
+      project_number: 5
+      policy_path: .yukh/project.yaml
+      mode: dry-run
+```
+
 ## Apply mode
 
 Apply is opt-in and requires both `mode: apply` and `apply-enabled: true`, together with a dedicated token that can access the target Project.
