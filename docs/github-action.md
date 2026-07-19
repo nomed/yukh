@@ -4,9 +4,7 @@ Yukh runs in `dry-run` mode by default. The connected runtime resolves the issue
 
 Yukh publishes `latest`, `vX`, `vX.Y`, and full `vX.Y.Z` tags. Use a full semantic-version tag or commit SHA for immutable pinning.
 
-## Direct composite action
-
-The direct action is the simplest and most explicit integration:
+## Composite action
 
 ```yaml
 name: Reconcile issue
@@ -32,21 +30,7 @@ jobs:
           mode: dry-run
 ```
 
-## Reusable workflow
-
-A pinned reusable workflow is also available:
-
-```yaml
-jobs:
-  yukh:
-    uses: nomed/yukh/.github/workflows/yukh-reconcile.yml@v0.2.1
-    with:
-      issue_number: ${{ github.event.issue.number }}
-      project_number: 5
-      mode: dry-run
-```
-
-Runs are serialized by repository and issue number.
+Serialize runs by repository and issue number when issue events may overlap.
 
 ## Apply mode
 
