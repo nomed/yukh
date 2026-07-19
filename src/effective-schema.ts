@@ -16,10 +16,10 @@ export interface EffectiveProjectSchema {
 const CORE_FIELDS = new Set(["kind", "priority", "size", "estimate", "status", "iteration"]);
 
 export function defaultFieldOwnership(logicalName: string, rule: PolicyField): ProjectFieldOwnership {
-  // In version 1 policies Status was commonly marked derived because it is a
-  // GitHub built-in field. Since v0.4 Yukh still governs its workflow options,
-  // so legacy `derived: true` must not silently opt Status out of management.
-  if (logicalName === "status") return "core";
+  // Version 1 policies commonly marked GitHub built-in Status and Iteration as
+  // derived. Yukh still governs their supported operations, so that legacy flag
+  // must not silently opt them out. Explicit ownership remains authoritative.
+  if (logicalName === "status" || logicalName === "iteration") return "core";
   if (rule.derived) return "derived";
   if (logicalName === "area") return "extension";
   if (CORE_FIELDS.has(logicalName)) return "core";
