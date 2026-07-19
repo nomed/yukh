@@ -22,8 +22,25 @@ if (!action.includes("src/action-cli.ts")) throw new Error("action.yml does not 
 if (!action.includes("github.action_path")) throw new Error("action.yml must resolve runtime files from github.action_path");
 if (action.includes("nomed/yukh@main")) throw new Error("action package must not depend on the moving main branch");
 
+const selfDryRun = await readFile(".github/workflows/yukh-self-dry-run.yml", "utf8");
+const selfApply = await readFile(".github/workflows/yukh-self-apply.yml", "utf8");
+for (const [name, workflow] of [["self dry-run", selfDryRun], ["self apply", selfApply]]) {
+  if (!workflow.includes("uses: nomed/yukh@v0.2.1")) throw new Error(`${name} must use the verified immutable release`);
+  if (workflow.includes("fromJSON(vars.YUKH_PROJECT_NUMBER)")) throw new Error(`${name} must not parse the project variable with fromJSON`);
+}
+
 const reusableWorkflow = await readFile(".github/workflows/yukh-reconcile.yml", "utf8");
-if (!reusableWorkflow.includes("uses: ./")) throw new Error("reusable workflow must invoke the checked-out local action");
+for (const snippet of [
+  "repository: nomed/yukh",
+  "ref: v0.2.1",
+  "path: .yukh-action",
+  "uses: ./.yukh-action",
+]) {
+  if (!reusableWorkflow.includes(snippet)) throw new Error(`reusable workflow is missing: ${snippet}`);
+}
+if (/^\s*- uses: \.\/$/m.test(reusableWorkflow)) {
+  throw new Error("reusable workflow must not invoke the caller repository root as the Yukh action");
+}
 
 const releaseWorkflow = await readFile(".github/workflows/release-please.yml", "utf8");
 const requiredReleaseSnippets = [
