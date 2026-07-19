@@ -9,31 +9,30 @@ contract:
   marker: yukh
   schema: 1
 
-fields:
-  priority:
-    project_field: Priority
-    required: true
-    values:
-      P0: P0
-      P1: P1
-      P2: P2
-      P3: P3
-  size:
-    project_field: Size
-    values:
-      XS: XS
-      S: S
-      M: M
-      L: L
-      XL: XL
-  estimate:
-    project_field: Estimate
-    type: number
-  iteration:
-    project_field: Iteration
-  status:
-    project_field: Status
-    derived: true
+bootstrap:
+  core:
+    enabled: true
+  extensions:
+    fields:
+      area:
+        project_field: Area
+        required: true
+        values:
+          adoption: Adoption
+          architecture: Architecture
+          documentation: Documentation
+          governance: Governance
+          policy: Policy
+          release: Release
+          runtime: Runtime
+
+workflow:
+  backlog_status: Backlog
+  ready_status: Ready
+  in_progress_status: In Progress
+  review_status: Review
+  blocked_status: Blocked
+  done_status: Done
 
 defaults:
   execution: hybrid
