@@ -25,7 +25,7 @@ export interface BootstrapOutcome {
 }
 
 interface RawProjectField {
-  __typename: string; id?: string; name?: string; dataType?: string;
+  __typename?: string; id?: string; name?: string; dataType?: string;
   databaseId?: number | null; fullDatabaseId?: string | null;
   options?: Array<{ id?: string; name?: string; color?: string; description?: string | null }>;
 }
@@ -145,6 +145,7 @@ export function planProjectBootstrap(existing: ExistingBootstrapField[], desired
 }
 
 function classifyMutability(node: RawProjectField): BootstrapFieldMutability {
+  if (!node.__typename) return "custom";
   if (node.__typename === "ProjectV2IterationField") return "derived";
   if (node.databaseId != null || node.fullDatabaseId != null) return "custom";
   if (node.__typename === "ProjectV2SingleSelectField" || node.__typename === "ProjectV2Field") return "derived";
@@ -154,7 +155,7 @@ function normalizeFields(nodes: Array<RawProjectField | null>): ExistingBootstra
   return nodes.flatMap((node): ExistingBootstrapField[] => {
     if (!node?.id || !node.name || !node.dataType) return [];
     const options = (node.options ?? []).flatMap((option): BootstrapOption[] => option.name ? [{ ...(option.id !== undefined ? { id: option.id } : {}), name: option.name, color: option.color ?? "GRAY", description: option.description ?? "" }] : []);
-    return [{ id: node.id, name: node.name, dataType: node.dataType, options, typename: node.__typename, mutability: classifyMutability(node) }];
+    return [{ id: node.id, name: node.name, dataType: node.dataType, options, ...(node.__typename ? { typename: node.__typename } : {}), mutability: classifyMutability(node) }];
   });
 }
 function render(plan: BootstrapPlan): string[] {
