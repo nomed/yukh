@@ -4,6 +4,7 @@ const required = [
   "action.yml",
   "package.json",
   "src/action-cli.ts",
+  "src/bootstrap.ts",
   "src/connected-runtime.ts",
   "src/runtime.ts",
   "src/project.ts",
@@ -13,6 +14,7 @@ const required = [
   "src/contract.ts",
   "README.md",
   "docs/github-action.md",
+  "docs/project-bootstrap.md",
 ];
 
 for (const path of required) await access(path);
@@ -20,6 +22,7 @@ for (const path of required) await access(path);
 const action = await readFile("action.yml", "utf8");
 if (!action.includes("src/action-cli.ts")) throw new Error("action.yml does not invoke the packaged runtime");
 if (!action.includes("github.action_path")) throw new Error("action.yml must resolve runtime files from github.action_path");
+if (!action.includes("operation:")) throw new Error("action.yml must expose the operation input");
 if (action.includes("nomed/yukh@main")) throw new Error("action package must not depend on the moving main branch");
 
 const selfDryRun = await readFile(".github/workflows/yukh-self-dry-run.yml", "utf8");
