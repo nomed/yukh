@@ -23,7 +23,7 @@ on:
         default: false
     secrets:
       yukh_token:
-        description: Optional GitHub App or PAT token with Project write access for apply mode.
+        description: Optional GitHub App or PAT token with target Project access.
         required: false
   workflow_dispatch:
     inputs:
@@ -52,13 +52,9 @@ on:
         required: false
         default: false
 
-# Dry-run needs only contents/issues read. Repository Project apply additionally
-# needs repository-projects: write. Organization/user Projects generally require
-# a GitHub App or fine-grained PAT passed as yukh_token with matching Project access.
 permissions:
   contents: read
   issues: read
-  repository-projects: write
 
 concurrency:
   group: yukh-${{ github.repository }}-${{ inputs.issue_number }}
@@ -68,8 +64,17 @@ jobs:
   reconcile:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: ./
+      - name: Check out consumer repository
+        uses: actions/checkout@v4
+      - name: Check out pinned Yukh action
+        uses: actions/checkout@v4
+        with:
+          repository: nomed/yukh
+          ref: v0.2.1
+          path: .yukh-action
+          persist-credentials: false
+      - name: Reconcile issue
+        uses: ./.yukh-action
         with:
           issue-number: ${{ inputs.issue_number }}
           project-number: ${{ inputs.project_number }}
