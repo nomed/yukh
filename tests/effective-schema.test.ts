@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { desiredProjectSchema } from "../src/bootstrap.js";
+import { parseIssueContract } from "../src/contract.js";
 import { buildEffectiveProjectSchema, isYukhManagedField } from "../src/effective-schema.js";
-import { loadProjectPolicy } from "../src/policy.js";
+import { buildDesiredProjectState, loadProjectPolicy } from "../src/policy.js";
 
 const source = `version: 1
 project: { owner: nomed, repository: example, name: Example }
@@ -14,6 +16,27 @@ fields:
   iteration: { project_field: Iteration, derived: true }
   status: { project_field: Status, derived: true }
 defaults: { execution: hybrid }
+`;
+
+const explicitSource = `version: 1
+project: { owner: nomed, repository: example, name: Example }
+contract: { marker: yukh, schema: 1 }
+fields:
+  kind: { project_field: Work Type, required: true, ownership: core, values: { task: Task } }
+  area: { project_field: Area, ownership: external, values: { runtime: Runtime } }
+  priority: { project_field: Work Priority, ownership: extension, values: { P1: P1 } }
+  status: { project_field: Status, ownership: external }
+defaults: { execution: hybrid }
+`;
+
+const issue = `<!-- yukh
+schema: 1
+kind: task
+area: runtime
+priority: P1
+-->
+
+Example
 `;
 
 describe("effective Project schema", () => {
@@ -52,5 +75,47 @@ describe("effective Project schema", () => {
       "Iteration",
       "Status",
     ]);
+  });
+
+  it("honors explicit ownership without breaking version 1 policies", () => {
+    const parsed = loadProjectPolicy(explicitSource);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+
+    const schema = buildEffectiveProjectSchema(parsed.value);
+    expect(Object.fromEntries(schema.fields.map((field) => [field.logicalName, field.ownership]))).toEqual({
+      area: "external",
+      kind: "core",
+      priority: "extension",
+      status: "external",
+    });
+  });
+
+  it("excludes external fields from bootstrap and issue reconciliation", () => {
+    const policy = loadProjectPolicy(explicitSource);
+    const contract = parseIssueContract(issue);
+    expect(policy.ok).toBe(true);
+    expect(contract.ok).toBe(true);
+    if (!policy.ok || !contract.ok) return;
+
+    expect(desiredProjectSchema(policy.value).fields.map(({ name }) => name)).toEqual([
+      "Work Priority",
+      "Work Type",
+    ]);
+
+    const desired = buildDesiredProjectState(contract.value, policy.value);
+    expect(desired.ok).toBe(true);
+    if (!desired.ok) return;
+    expect(desired.value.fields).toEqual({
+      "Work Priority": "P1",
+      "Work Type": "Task",
+    });
+  });
+
+  it("rejects conflicting derived declarations", () => {
+    const parsed = loadProjectPolicy(explicitSource.replace("ownership: core", "ownership: core, derived: true"));
+    expect(parsed.ok).toBe(false);
+    if (parsed.ok) return;
+    expect(parsed.diagnostics.some(({ code }) => code === "conflicting_field_ownership")).toBe(true);
   });
 });
