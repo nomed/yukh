@@ -103,7 +103,9 @@ class RoutedTransport implements GraphqlTransport {
   async execute<T>(query: string, variables: Record<string, unknown>): Promise<T> {
     this.calls.push({ query, variables });
     if (query.includes("ResolveIssue")) return issueResponse as T;
-    if (query.includes("DiscoverProject")) return projectResponse(this.present) as T;
+    if (query.includes("DiscoverOrganizationProject") || query.includes("DiscoverUserProject")) {
+      return projectResponse(this.present) as T;
+    }
     this.mutationIndex += 1;
     if (this.failMutationAt === this.mutationIndex) throw new Error("gateway timeout");
     if (query.includes("AddProjectItem")) return { addProjectV2ItemById: { item: { id: "ITEM_27" } } } as T;
