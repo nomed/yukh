@@ -28,7 +28,7 @@ scheduling: { automatic_iteration: false }
 safety: { overwrite_human_values: false, fail_on_unknown_values: true, comment_on_validation_error: true }
 `;
 
-const field = (id: string, name: string, mutability: ExistingBootstrapField["mutability"], typename?: string): ExistingBootstrapField => ({
+const field = (id: string, name: string, mutability: NonNullable<ExistingBootstrapField["mutability"]>, typename?: string): ExistingBootstrapField => ({
   id,
   name,
   dataType: name === "Estimate" ? "NUMBER" : "SINGLE_SELECT",
