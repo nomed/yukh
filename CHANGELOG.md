@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/nomed/yukh/compare/v0.3.2...v0.4.0) (2026-07-19)
+
+
+### Features
+
+* bootstrap canonical Status workflow ([#61](https://github.com/nomed/yukh/issues/61)) ([df5322c](https://github.com/nomed/yukh/commit/df5322c4716d8753b02026fbdd84c11f90223fea))
+
 ## [0.3.2](https://github.com/nomed/yukh/compare/v0.3.1...v0.3.2) (2026-07-19)
 
 
