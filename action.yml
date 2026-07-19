@@ -1,8 +1,12 @@
 name: Yukh reconciliation
-description: Discover GitHub Project state and run deterministic dry-run or explicitly authorized apply reconciliation.
+description: Reconcile issues or bootstrap the GitHub Project schema declared by a Yukh policy.
 inputs:
+  operation:
+    description: reconcile-issue or bootstrap-project.
+    required: false
+    default: reconcile-issue
   issue-number:
-    description: Issue number to reconcile. Defaults to the triggering issue.
+    description: Issue number to reconcile. Defaults to the triggering issue. Not required for bootstrap-project.
     required: false
   issue-body:
     description: Optional issue body override. Otherwise the action resolves the issue through GraphQL.
@@ -23,7 +27,7 @@ inputs:
     required: false
     default: "false"
   github-token:
-    description: Token used for issue, Project discovery, and optional Project mutations.
+    description: Token used for issue, Project discovery, schema bootstrap, and optional mutations.
     required: false
 runs:
   using: composite
@@ -40,6 +44,7 @@ runs:
       shell: bash
       working-directory: ${{ github.workspace }}
       env:
+        INPUT_OPERATION: ${{ inputs.operation }}
         INPUT_ISSUE_NUMBER: ${{ inputs.issue-number }}
         INPUT_ISSUE_BODY: ${{ inputs.issue-body }}
         INPUT_PROJECT_NUMBER: ${{ inputs.project-number }}
