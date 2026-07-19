@@ -6,16 +6,18 @@ Yukh uses Conventional Commits and release-please. Merges to `main` update a rel
 
 The release workflow requires **Settings → Actions → General → Workflow permissions → Read and write permissions** and permission for GitHub Actions to create pull requests.
 
-The initial compatibility line is pre-1.0. Breaking changes may occur in minor releases before `1.0.0`; every breaking change must be called out in the changelog. Yukh publishes the full release tag such as `nomed/yukh@v0.1.0` and also updates `nomed/yukh@latest`, `nomed/yukh@v0`, and `nomed/yukh@v0.1`. Consumers that need an immutable pin should use the full tag or a commit SHA.
+The initial compatibility line is pre-1.0. Breaking changes may occur in minor releases before `1.0.0`; every breaking change must be called out in the changelog. Yukh publishes full release tags such as `nomed/yukh@v0.2.1` and also updates `nomed/yukh@latest`, `nomed/yukh@v0`, and `nomed/yukh@v0.2`. Consumers that need an immutable pin should use the full tag or a commit SHA.
 
 ## Public repository installation
 
 1. Enable GitHub Actions in the consumer repository under **Settings → Actions → General**.
 2. Permit the Yukh refs your policy allows: `nomed/yukh@latest`, `nomed/yukh@vX`, `nomed/yukh@vX.Y`, `nomed/yukh@vX.Y.Z`, or a commit SHA, plus the official actions used by the workflow.
 3. Copy `examples/minimal/project.yaml` to `.yukh/project.yaml` and adapt field names and mappings.
-4. Add the reusable workflow or call the composite action using an immutable release tag.
+4. Call the composite action or pinned reusable workflow.
 5. Start in `dry-run` with read-only workflow permissions.
 6. Enable apply only after Project access is verified.
+
+The reusable workflow checks out the consumer repository and the pinned Yukh action separately. This prevents its local action path from resolving against the consumer repository.
 
 ## Private repository installation
 
@@ -39,6 +41,8 @@ Apply requires a dedicated token capable of reading the issue and reading/writin
 
 Upgrade by changing the immutable tag in a pull request, running dry-run, reviewing Step Summary diagnostics, and then enabling apply. Roll back by restoring the previous known-good tag. Do not delete old release tags.
 
+Self-hosting and reusable-workflow internal pins are updated deliberately after a release has been verified; release-please does not rewrite workflow files automatically.
+
 ## Deprecation and compatibility
 
 Deprecated contract keys or behavior must be documented in the changelog before removal. Before 1.0, compatibility guarantees apply within a pinned release only. From 1.0 onward, breaking behavior requires a major release.
@@ -49,4 +53,4 @@ Disable issue-event workflows, run a final dry-run, remove the Yukh workflow and
 
 ## Release verification
 
-CI runs `npm run ci`, including type checking, tests, and `npm run verify:package`. The package verification step checks that the release workflow continues to refresh `latest`, `vX`, and `vX.Y` from the release-please semver outputs. A release is accepted only after a clean consumer workflow resolves the intended tag and runs the action without files from `main`.
+CI runs type checking, the complete test suite, and `npm run verify:package`. Package verification checks the Action runtime files, immutable self-workflow pins, external reusable-workflow checkout behavior, and release alias-tag logic. A release is accepted only after a clean consumer workflow resolves the intended tag and runs the action without relying on files from `main`.
