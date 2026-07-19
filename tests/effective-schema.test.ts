@@ -55,7 +55,7 @@ describe("effective Project schema", () => {
       kind: "core",
       priority: "core",
       size: "core",
-      status: "derived",
+      status: "core",
     });
   });
 
@@ -68,12 +68,12 @@ describe("effective Project schema", () => {
       "Area",
       "Estimate",
       "Size",
+      "Status",
       "Work Priority",
       "Work Type",
     ]);
     expect(schema.fields.filter((field) => !isYukhManagedField(field)).map((field) => field.projectField)).toEqual([
       "Iteration",
-      "Status",
     ]);
   });
 
