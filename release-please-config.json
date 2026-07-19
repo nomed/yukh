@@ -6,7 +6,13 @@
   "changelog-path": "CHANGELOG.md",
   "packages": {
     ".": {
-      "package-name": "yukh"
+      "package-name": "yukh",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": ".github/workflows/yukh-self-apply.yml"
+        }
+      ]
     }
   }
 }
