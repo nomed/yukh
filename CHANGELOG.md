@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.2](https://github.com/nomed/yukh/compare/v0.2.1...v0.2.2) (2026-07-19)
+
+
+### Bug Fixes
+
+* align Action workflows ([#50](https://github.com/nomed/yukh/issues/50)) ([a7f50d3](https://github.com/nomed/yukh/commit/a7f50d3ae18f2582ba6a8fe3f0510b8fab42644e))
+* stop self policy from requiring missing Type/Area fields ([f5b638c](https://github.com/nomed/yukh/commit/f5b638c692cbbcbf5a49790883b4423039894c68))
+
 ## [0.2.1](https://github.com/nomed/yukh/compare/v0.2.0...v0.2.1) (2026-07-18)
 
 
