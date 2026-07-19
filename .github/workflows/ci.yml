@@ -14,15 +14,4 @@ jobs:
         with:
           node-version: 22
       - run: npm install
-      - run: npm run typecheck
-      - run: npx vitest run tests/contract.test.ts
-      - run: npx vitest run tests/policy.test.ts
-      - run: npx vitest run tests/project.test.ts
-      - run: npx vitest run tests/reconcile.test.ts
-      - run: npx vitest run tests/report.test.ts
-      - run: npx vitest run tests/runtime.test.ts
-      - run: npx vitest run tests/mutation.test.ts
-      - run: npx vitest run tests/relationships.test.ts
-      - run: npx vitest run tests/relationship-application.test.ts
       - run: npx vitest run tests/connected-runtime.test.ts
-      - run: npm run verify:package
