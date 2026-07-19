@@ -40,7 +40,7 @@ Example
 `;
 
 describe("effective Project schema", () => {
-  it("classifies canonical fields, repository Area and derived fields", () => {
+  it("classifies canonical fields, repository Area and built-in fields", () => {
     const parsed = loadProjectPolicy(source);
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
@@ -51,7 +51,7 @@ describe("effective Project schema", () => {
     expect(ownership).toEqual({
       area: "extension",
       estimate: "core",
-      iteration: "derived",
+      iteration: "core",
       kind: "core",
       priority: "core",
       size: "core",
@@ -67,14 +67,13 @@ describe("effective Project schema", () => {
     expect(schema.fields.filter(isYukhManagedField).map((field) => field.projectField)).toEqual([
       "Area",
       "Estimate",
+      "Iteration",
       "Size",
       "Status",
       "Work Priority",
       "Work Type",
     ]);
-    expect(schema.fields.filter((field) => !isYukhManagedField(field)).map((field) => field.projectField)).toEqual([
-      "Iteration",
-    ]);
+    expect(schema.fields.filter((field) => !isYukhManagedField(field)).map((field) => field.projectField)).toEqual([]);
   });
 
   it("honors explicit ownership without breaking version 1 policies", () => {
