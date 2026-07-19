@@ -1,0 +1,79 @@
+name: Yukh reusable reconciliation
+
+on:
+  workflow_call:
+    inputs:
+      issue_number:
+        type: number
+        required: true
+      project_number:
+        type: number
+        required: true
+      policy_path:
+        type: string
+        required: false
+        default: .yukh/project.yaml
+      mode:
+        type: string
+        required: false
+        default: dry-run
+      apply_enabled:
+        type: boolean
+        required: false
+        default: false
+    secrets:
+      yukh_token:
+        description: Optional GitHub App or PAT token with Project write access for apply mode.
+        required: false
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Issue number
+        type: number
+        required: true
+      project_number:
+        description: Project v2 number
+        type: number
+        required: true
+      policy_path:
+        description: Policy path
+        type: string
+        required: false
+        default: .yukh/project.yaml
+      mode:
+        description: Reconciliation mode
+        type: choice
+        options: [dry-run, apply]
+        required: false
+        default: dry-run
+      apply_enabled:
+        description: Explicitly allow apply mode
+        type: boolean
+        required: false
+        default: false
+
+# Dry-run needs only contents/issues read. Repository Project apply additionally
+# needs repository-projects: write. Organization/user Projects generally require
+# a GitHub App or fine-grained PAT passed as yukh_token with matching Project access.
+permissions:
+  contents: read
+  issues: read
+  repository-projects: write
+
+concurrency:
+  group: yukh-${{ github.repository }}-${{ inputs.issue_number }}
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./
+        with:
+          issue-number: ${{ inputs.issue_number }}
+          project-number: ${{ inputs.project_number }}
+          policy-path: ${{ inputs.policy_path }}
+          mode: ${{ inputs.mode }}
+          apply-enabled: ${{ inputs.apply_enabled }}
+          github-token: ${{ secrets.yukh_token || github.token }}
