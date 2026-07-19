@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.3.0](https://github.com/nomed/yukh/compare/v0.2.2...v0.3.0) (2026-07-19)
+
+
+### Features
+
+* add idempotent Project bootstrap ([d2af05f](https://github.com/nomed/yukh/commit/d2af05ffc92244a26141ed04de4e149819b73988))
+* add Project schema bootstrap planner and executor ([b3edeb2](https://github.com/nomed/yukh/commit/b3edeb2260d9327a8d663668eccdf74f623ed60c))
+* expose Project bootstrap operation ([0c30633](https://github.com/nomed/yukh/commit/0c30633e458985109c5ff1a11eb7081d1a0b47bc))
+* route bootstrap-project operation ([ba0ba62](https://github.com/nomed/yukh/commit/ba0ba625f032e0d6a98c44f836320a332a120bbf))
+
+
+### Bug Fixes
+
+* satisfy strict bootstrap typing ([f72fb0b](https://github.com/nomed/yukh/commit/f72fb0bc465eae20146147daf7855eca03e65256))
+
 ## [0.2.2](https://github.com/nomed/yukh/compare/v0.2.1...v0.2.2) (2026-07-19)
 
 
