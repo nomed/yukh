@@ -4,12 +4,20 @@ import { loadProjectPolicy, type ProjectPolicy } from "./policy.js";
 
 export type BootstrapMode = "dry-run" | "apply";
 export type BootstrapFieldType = "SINGLE_SELECT" | "NUMBER";
-export type BootstrapFieldMutability = "custom" | "derived" | "ambiguous";
+export type BootstrapFieldMutability = "custom" | "status" | "derived" | "ambiguous";
 
 export interface BootstrapOption { id?: string; name: string; color: string; description: string; }
-export interface BootstrapFieldSpec { name: string; dataType: BootstrapFieldType; options: BootstrapOption[]; }
+export interface BootstrapFieldSpec {
+  name: string;
+  dataType: BootstrapFieldType;
+  options: BootstrapOption[];
+  management?: "custom" | "status";
+}
 export interface ExistingBootstrapField {
-  id: string; name: string; dataType: string; options: BootstrapOption[];
+  id: string;
+  name: string;
+  dataType: string;
+  options: BootstrapOption[];
   typename?: string;
   mutability?: BootstrapFieldMutability;
 }
@@ -18,18 +26,29 @@ export type BootstrapOperation =
   | { kind: "update-options"; field: BootstrapFieldSpec; fieldId: string; options: BootstrapOption[]; missing: string[]; preserved: string[] };
 export interface BootstrapPlan { operations: BootstrapOperation[]; unchanged: string[]; }
 export interface BootstrapOutcome {
-  ok: boolean; mode: BootstrapMode;
+  ok: boolean;
+  mode: BootstrapMode;
   project: { id: string; title: string; owner: string; number: number } | null;
-  plan: BootstrapPlan; applied: number; remaining: BootstrapOperation[];
-  diagnostics: ContractDiagnostic[]; human: string; json: string; summary: string;
+  plan: BootstrapPlan;
+  applied: number;
+  remaining: BootstrapOperation[];
+  diagnostics: ContractDiagnostic[];
+  human: string;
+  json: string;
+  summary: string;
 }
 
 interface RawProjectField {
-  __typename?: string; id?: string; name?: string; dataType?: string;
+  __typename?: string;
+  id?: string;
+  name?: string;
+  dataType?: string;
   databaseId?: number | null;
   options?: Array<{ id?: string; name?: string; color?: string; description?: string | null }>;
 }
-interface RawProjectResponse { repositoryOwner?: { projectV2?: { id: string; title: string; fields: { nodes: Array<RawProjectField | null> } } | null } | null; }
+interface RawProjectResponse {
+  repositoryOwner?: { projectV2?: { id: string; title: string; fields: { nodes: Array<RawProjectField | null> } } | null } | null;
+}
 
 const DISCOVER_PROJECT = `
 query BootstrapProject($owner: String!, $number: Int!) {
@@ -66,18 +85,24 @@ function stableColor(index: number): string {
   const colors = ["GRAY", "BLUE", "GREEN", "YELLOW", "ORANGE", "RED", "PURPLE", "PINK"];
   return colors[index % colors.length] ?? "GRAY";
 }
+function selectSpec(name: string, names: string[], management: "custom" | "status" = "custom"): BootstrapFieldSpec {
+  return {
+    name,
+    dataType: "SINGLE_SELECT",
+    options: [...new Set(names)].map((option, index) => ({ name: option, color: stableColor(index), description: "" })),
+    management,
+  };
+}
 
 export function desiredProjectSchema(policy: ProjectPolicy): { fields: BootstrapFieldSpec[]; diagnostics: ContractDiagnostic[] } {
   const diagnostics: ContractDiagnostic[] = [];
   const byName = new Map<string, BootstrapFieldSpec>();
   for (const [logicalName, rule] of Object.entries(policy.fields).sort(([a], [b]) => a.localeCompare(b))) {
-    if (!rule || rule.derived || logicalName === "status" || logicalName === "iteration") continue;
+    if (!rule || logicalName === "status" || logicalName === "iteration" || rule.derived) continue;
     let spec: BootstrapFieldSpec;
-    if (rule.type === "number") spec = { name: rule.projectField, dataType: "NUMBER", options: [] };
-    else if (Object.keys(rule.values).length > 0) {
-      const names = [...new Set(Object.values(rule.values))].sort((a, b) => a.localeCompare(b));
-      spec = { name: rule.projectField, dataType: "SINGLE_SELECT", options: names.map((name, index) => ({ name, color: stableColor(index), description: "" })) };
-    } else {
+    if (rule.type === "number") spec = { name: rule.projectField, dataType: "NUMBER", options: [], management: "custom" };
+    else if (Object.keys(rule.values).length > 0) spec = selectSpec(rule.projectField, Object.values(rule.values).sort((a, b) => a.localeCompare(b)));
+    else {
       diagnostics.push(diagnostic("unsupported_bootstrap_field", `Policy field '${logicalName}' maps to '${rule.projectField}' without enum values or numeric type; Yukh cannot infer a safe Project field type`, `fields.${logicalName}`));
       continue;
     }
@@ -89,9 +114,20 @@ export function desiredProjectSchema(policy: ProjectPolicy): { fields: Bootstrap
     }
     if (existing?.dataType === "SINGLE_SELECT") {
       const names = [...new Set([...existing.options.map(({ name }) => name), ...spec.options.map(({ name }) => name)])].sort();
-      existing.options = names.map((name, index) => ({ name, color: stableColor(index), description: "" }));
+      byName.set(key, selectSpec(existing.name, names, existing.management));
     } else byName.set(key, spec);
   }
+
+  const statusField = policy.fields.status?.projectField ?? "Status";
+  byName.set(statusField.toLowerCase(), selectSpec(statusField, [
+    policy.workflow.backlog,
+    policy.workflow.ready,
+    policy.workflow.inProgress,
+    policy.workflow.review,
+    policy.workflow.blocked,
+    policy.workflow.done,
+  ], "status"));
+
   return { fields: [...byName.values()].sort((a, b) => a.name.localeCompare(b.name)), diagnostics };
 }
 
@@ -104,7 +140,10 @@ export function mergeBootstrapOptions(existing: BootstrapOption[], desired: Boot
     if (found) {
       options.push({ ...(found.id !== undefined ? { id: found.id } : {}), name: found.name, color: found.color || desiredOption.color, description: found.description });
       remaining.delete(desiredOption.name.toLowerCase());
-    } else { options.push({ ...desiredOption }); missing.push(desiredOption.name); }
+    } else {
+      options.push({ ...desiredOption });
+      missing.push(desiredOption.name);
+    }
   }
   const preservedOptions = [...remaining.values()].sort((a, b) => a.name.localeCompare(b.name));
   options.push(...preservedOptions);
@@ -118,14 +157,21 @@ export function planProjectBootstrap(existing: ExistingBootstrapField[], desired
   const byName = new Map(existing.map((field) => [field.name.toLowerCase(), field]));
   for (const field of desired) {
     const current = byName.get(field.name.toLowerCase());
-    if (!current) { candidateOperations.push({ kind: "create-field", field }); continue; }
+    if (!current) {
+      if (field.management === "status") diagnostics.push(diagnostic("status_project_field_missing", `Project field '${field.name}' was not found; Yukh cannot create GitHub's built-in Status field`, `fields.${field.name}`));
+      else candidateOperations.push({ kind: "create-field", field });
+      continue;
+    }
     const mutability = current.mutability ?? "custom";
-    if (mutability !== "custom") {
+    const allowed = field.management === "status" ? mutability === "status" : mutability === "custom";
+    if (!allowed) {
       diagnostics.push(diagnostic(
-        mutability === "derived" ? "non_custom_project_field" : "ambiguous_project_field",
-        mutability === "derived"
-          ? `Project field '${field.name}' is derived from issues or pull requests and cannot be updated by Project schema bootstrap; map the policy to a dedicated custom field`
-          : `Project field '${field.name}' cannot be proven to be an editable custom field; map the policy to a dedicated custom field`,
+        field.management === "status" ? "unsupported_status_field" : mutability === "derived" ? "non_custom_project_field" : "ambiguous_project_field",
+        field.management === "status"
+          ? `Project field '${field.name}' is not the manageable built-in Status single-select field`
+          : mutability === "derived"
+            ? `Project field '${field.name}' is derived from issues or pull requests and cannot be updated by Project schema bootstrap; map the policy to a dedicated custom field`
+            : `Project field '${field.name}' cannot be proven to be an editable custom field; map the policy to a dedicated custom field`,
         `fields.${field.name}`,
       ));
       continue;
@@ -146,6 +192,7 @@ export function planProjectBootstrap(existing: ExistingBootstrapField[], desired
 
 function classifyMutability(node: RawProjectField): BootstrapFieldMutability {
   if (!node.__typename) return "custom";
+  if (node.name === "Status" && node.__typename === "ProjectV2SingleSelectField") return "status";
   if (node.__typename === "ProjectV2IterationField") return "derived";
   if (node.databaseId != null) return "custom";
   if (node.__typename === "ProjectV2SingleSelectField" || node.__typename === "ProjectV2Field") return "derived";
@@ -176,6 +223,7 @@ export async function runProjectBootstrap(input: { policySource: string; project
   const desired = desiredProjectSchema(policyResult.value);
   diagnostics.push(...desired.diagnostics);
   if (diagnostics.length > 0) return buildOutcome(mode, null, emptyPlan, 0, [], diagnostics);
+
   let project: NonNullable<BootstrapOutcome["project"]>;
   let fields: ExistingBootstrapField[];
   try {
@@ -189,6 +237,7 @@ export async function runProjectBootstrap(input: { policySource: string; project
     const code = /resource not accessible|forbidden|permission/i.test(message) ? "project_permission_denied" : "project_api_error";
     return buildOutcome(mode, null, emptyPlan, 0, [], [diagnostic(code, `Project bootstrap discovery failed: ${message}`, "project")]);
   }
+
   const planned = planProjectBootstrap(fields, desired.fields);
   if (!planned.ok) return buildOutcome(mode, project, planned.plan, 0, [], planned.diagnostics);
   if (mode === "dry-run") return buildOutcome(mode, project, planned.plan, 0, planned.plan.operations, []);
@@ -201,11 +250,14 @@ export async function runProjectBootstrap(input: { policySource: string; project
       applied += 1;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      return buildOutcome(mode, project, planned.plan, applied, planned.plan.operations.slice(index), [diagnostic("project_bootstrap_mutation_failed", `Bootstrap mutation failed: ${message}`, `operations.${index}`)]);
+      const code = operation.field.management === "status" ? "status_option_mutation_unsupported" : "project_bootstrap_mutation_failed";
+      const prefix = operation.field.management === "status" ? "GitHub rejected Status option reconciliation" : "Bootstrap mutation failed";
+      return buildOutcome(mode, project, planned.plan, applied, planned.plan.operations.slice(index), [diagnostic(code, `${prefix}: ${message}`, `operations.${index}`)]);
     }
   }
   return buildOutcome(mode, project, planned.plan, applied, [], []);
 }
+
 function buildOutcome(mode: BootstrapMode, project: BootstrapOutcome["project"], plan: BootstrapPlan, applied: number, remaining: BootstrapOperation[], diagnostics: ContractDiagnostic[]): BootstrapOutcome {
   const ok = diagnostics.length === 0 && (mode === "dry-run" || remaining.length === 0);
   const lines = project ? [`Project: ${project.title} (${project.owner}#${project.number})`, ...render(plan)] : [];
