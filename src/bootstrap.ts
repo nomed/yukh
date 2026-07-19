@@ -1,4 +1,5 @@
 import type { ContractDiagnostic } from "./contract.js";
+import { buildEffectiveProjectSchema, isYukhManagedField } from "./effective-schema.js";
 import type { GraphqlTransport } from "./project.js";
 import { loadProjectPolicy, type ProjectPolicy } from "./policy.js";
 
@@ -66,8 +67,10 @@ function selectSpec(name: string, names: string[], management: "custom" | "statu
 export function desiredProjectSchema(policy: ProjectPolicy): { fields: BootstrapFieldSpec[]; diagnostics: ContractDiagnostic[] } {
   const diagnostics: ContractDiagnostic[] = [];
   const byName = new Map<string, BootstrapFieldSpec>();
-  for (const [logicalName, rule] of Object.entries(policy.fields).sort(([a], [b]) => a.localeCompare(b))) {
-    if (!rule || logicalName === "status" || logicalName === "iteration" || rule.derived) continue;
+  const effective = buildEffectiveProjectSchema(policy);
+  for (const field of effective.fields) {
+    const { logicalName, rule } = field;
+    if (!isYukhManagedField(field) || logicalName === "status" || logicalName === "iteration") continue;
     let spec: BootstrapFieldSpec;
     if (rule.type === "number") spec = { name: rule.projectField, dataType: "NUMBER", options: [], management: "custom" };
     else if (Object.keys(rule.values).length > 0) spec = selectSpec(rule.projectField, Object.values(rule.values).sort((a, b) => a.localeCompare(b)));
@@ -86,11 +89,14 @@ export function desiredProjectSchema(policy: ProjectPolicy): { fields: Bootstrap
       byName.set(key, selectSpec(existing.name, names, existing.management ?? "custom"));
     } else byName.set(key, spec);
   }
-  const statusField = policy.fields.status?.projectField ?? "Status";
-  byName.set(statusField.toLowerCase(), selectSpec(statusField, [
-    policy.workflow.backlog, policy.workflow.ready, policy.workflow.inProgress,
-    policy.workflow.review, policy.workflow.blocked, policy.workflow.done,
-  ], "status"));
+  const status = effective.fields.find(({ logicalName }) => logicalName === "status");
+  if (!status || isYukhManagedField(status)) {
+    const statusField = status?.projectField ?? "Status";
+    byName.set(statusField.toLowerCase(), selectSpec(statusField, [
+      policy.workflow.backlog, policy.workflow.ready, policy.workflow.inProgress,
+      policy.workflow.review, policy.workflow.blocked, policy.workflow.done,
+    ], "status"));
+  }
   return { fields: [...byName.values()].sort((a, b) => a.name.localeCompare(b.name)), diagnostics };
 }
 
@@ -212,7 +218,7 @@ export async function runProjectBootstrap(input: { policySource: string; project
   return buildOutcome(mode, project, planned.plan, applied, [], []);
 }
 function buildOutcome(mode: BootstrapMode, project: BootstrapOutcome["project"], plan: BootstrapPlan, applied: number, remaining: BootstrapOperation[], diagnostics: ContractDiagnostic[]): BootstrapOutcome {
-  const ok = diagnostics.length === 0 && (mode === "dry-run" || remaining.length === 0);
+  const ok = diagnostics.length === 0;
   const lines = project ? [`Project: ${project.title} (${project.owner}#${project.number})`, ...render(plan)] : [];
   if (mode === "dry-run" && diagnostics.length === 0) lines.push("Dry run only: no changes applied.");
   if (mode === "apply" && diagnostics.length === 0) lines.push(`Applied ${applied} operation(s).`);
