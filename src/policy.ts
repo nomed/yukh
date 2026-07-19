@@ -1,5 +1,6 @@
 import { parseDocument } from "yaml";
 import type { ContractDiagnostic, IssueContract } from "./contract.js";
+import { buildEffectiveProjectSchema, isYukhManagedField, type ProjectFieldOwnership } from "./effective-schema.js";
 
 const CONTRACT_FIELDS = ["kind", "area", "priority", "size", "estimate", "iteration"] as const;
 type ContractField = (typeof CONTRACT_FIELDS)[number];
@@ -9,6 +10,7 @@ export interface PolicyField {
   required: boolean;
   type: "string" | "number";
   derived: boolean;
+  ownership?: ProjectFieldOwnership;
   values: Record<string, string>;
 }
 
@@ -86,6 +88,12 @@ function stringMap(value: unknown, path: string, diagnostics: ContractDiagnostic
   }
   return result;
 }
+function ownershipAt(value: unknown, path: string, diagnostics: ContractDiagnostic[]): ProjectFieldOwnership | undefined {
+  if (value === undefined) return undefined;
+  if (value === "core" || value === "extension" || value === "external" || value === "derived") return value;
+  diagnostics.push(diag("unsupported_policy_value", `${path} must be core, extension, external, or derived`, path));
+  return undefined;
+}
 
 export function loadProjectPolicy(source: string): PolicyResult<ProjectPolicy> {
   const document = parseDocument(source, { prettyErrors: false, uniqueKeys: true });
@@ -118,11 +126,15 @@ export function loadProjectPolicy(source: string): PolicyResult<ProjectPolicy> {
       const projectField = stringAt(raw.project_field, `fields.${key}.project_field`, diagnostics);
       const declaredType = raw.type === undefined ? "string" : raw.type;
       if (declaredType !== "string" && declaredType !== "number") diagnostics.push(diag("unsupported_policy_value", `fields.${key}.type must be string or number`, `fields.${key}.type`));
+      const ownership = ownershipAt(raw.ownership, `fields.${key}.ownership`, diagnostics);
+      const derived = booleanAt(raw.derived, `fields.${key}.derived`, diagnostics, false);
+      if (derived && ownership && ownership !== "derived") diagnostics.push(diag("conflicting_field_ownership", `fields.${key} cannot combine derived: true with ownership: ${ownership}`, `fields.${key}`));
       if (projectField) fields[key as ContractField | "status"] = {
         projectField,
         required: booleanAt(raw.required, `fields.${key}.required`, diagnostics, false),
         type: declaredType === "number" ? "number" : "string",
-        derived: booleanAt(raw.derived, `fields.${key}.derived`, diagnostics, false),
+        derived,
+        ...(ownership ? { ownership } : {}),
         values: stringMap(raw.values, `fields.${key}.values`, diagnostics),
       };
     }
@@ -178,9 +190,11 @@ function contractValue(contract: IssueContract, field: ContractField): string | 
 export function buildDesiredProjectState(contract: IssueContract, policy: ProjectPolicy): PolicyResult<DesiredProjectState> {
   const diagnostics: ContractDiagnostic[] = [];
   const fields: Record<string, string | number> = {};
+  const effective = buildEffectiveProjectSchema(policy);
   for (const field of CONTRACT_FIELDS) {
-    const rule = policy.fields[field];
-    if (!rule || rule.derived || field === "iteration") continue;
+    const effectiveField = effective.fields.find(({ logicalName }) => logicalName === field);
+    if (!effectiveField || !isYukhManagedField(effectiveField) || field === "iteration") continue;
+    const rule = effectiveField.rule;
     const value = contractValue(contract, field);
     if (value === undefined) {
       if (rule.required) diagnostics.push(diag("missing_policy_required", `${field} is required by repository policy`, field));
@@ -206,10 +220,13 @@ export function buildDesiredProjectState(contract: IssueContract, policy: Projec
     if (milestone === undefined) diagnostics.push(diag("unsupported_contract_value", `milestone '${contract.milestone}' is not allowed by repository policy`, "milestone"));
   }
   let iteration: DesiredProjectState["iteration"] = { mode: "none" };
-  if (contract.iteration === "auto") {
-    if (!policy.scheduling.automaticIteration) diagnostics.push(diag("automatic_iteration_disabled", "iteration auto is disabled by repository policy", "iteration"));
-    else iteration = { mode: "auto" };
-  } else if (contract.iteration !== undefined) iteration = { mode: "explicit", value: contract.iteration };
+  const iterationField = effective.fields.find(({ logicalName }) => logicalName === "iteration");
+  if (iterationField && isYukhManagedField(iterationField)) {
+    if (contract.iteration === "auto") {
+      if (!policy.scheduling.automaticIteration) diagnostics.push(diag("automatic_iteration_disabled", "iteration auto is disabled by repository policy", "iteration"));
+      else iteration = { mode: "auto" };
+    } else if (contract.iteration !== undefined) iteration = { mode: "explicit", value: contract.iteration };
+  }
   const execution = contract.execution ?? policy.defaults.execution;
   if (!execution) diagnostics.push(diag("missing_policy_required", "execution has no contract value or policy default", "execution"));
   if (diagnostics.length > 0 || !execution) return { ok: false, diagnostics };
