@@ -2,10 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { GraphqlTransport, DiscoveredProjectState } from "../src/project.js";
 import type { DesiredProjectState, ProjectPolicy } from "../src/policy.js";
 import { SafeProjectMutationAdapter } from "../src/mutation.js";
-import {
-  applyCompleteProjectReconciliation,
-  planCompleteProjectReconciliation,
-} from "../src/reconcile.js";
+import { applyCompleteProjectReconciliation, planCompleteProjectReconciliation } from "../src/reconcile.js";
 
 const policy: ProjectPolicy = {
   version: 1,
@@ -19,6 +16,7 @@ const policy: ProjectPolicy = {
   },
   milestones: {},
   defaults: { execution: "hybrid" },
+  workflow: { backlog: "Backlog", ready: "Ready", inProgress: "In Progress", review: "Review", blocked: "Blocked", done: "Done" },
   scheduling: { automaticIteration: true },
   safety: { overwriteHumanValues: false, failOnUnknownValues: true, commentOnValidationError: true },
 };
@@ -49,11 +47,7 @@ function discovered(overrides: Partial<DiscoveredProjectState["issueItem"]> = {}
       { id: "F_PRI", name: "Priority", dataType: "SINGLE_SELECT", options: [{ id: "O0", name: "P0" }], iterations: [] },
       { id: "F_STATUS", name: "Status", dataType: "SINGLE_SELECT", options: [{ id: "OS", name: "Blocked" }, { id: "OR", name: "Ready" }], iterations: [] },
     ],
-    issueItem: {
-      present: false,
-      values: {},
-      ...overrides,
-    },
+    issueItem: { present: false, values: {}, ...overrides },
     observed: { projectItemPresent: false, fields: {}, relationships: { children: [], dependsOn: [], blocks: [] } },
   };
 }
@@ -71,32 +65,16 @@ class SequenceTransport implements GraphqlTransport {
 
 describe("complete Project reconciliation", () => {
   it("plans a missing item and all drifted managed fields in stable order", () => {
-    const result = planCompleteProjectReconciliation({
-      desired,
-      policy,
-      discovered: discovered(),
-      issueContentId: "ISSUE_61",
-      now: "2026-07-18",
-    });
+    const result = planCompleteProjectReconciliation({ desired, policy, discovered: discovered(), issueContentId: "ISSUE_61", now: "2026-07-18" });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.plan.operations.map((operation) => operation.kind === "add_project_item" ? "add" : operation.fieldName)).toEqual([
-      "add",
-      "Estimate",
-      "Iteration",
-      "Priority",
-      "Status",
-    ]);
+    expect(result.plan.operations.map((operation) => operation.kind === "add_project_item" ? "add" : operation.fieldName)).toEqual(["add", "Estimate", "Iteration", "Priority", "Status"]);
     expect(result.plan.operations[2]).toMatchObject({ value: { iterationId: "I2" }, desiredValue: "Iteration 2" });
     expect(result.plan.operations[4]).toMatchObject({ desiredValue: "Blocked" });
   });
 
   it("produces a no-op when all managed values match", () => {
-    const state = discovered({
-      present: true,
-      id: "ITEM_61",
-      values: { Estimate: 2, Iteration: "Iteration 2", Priority: "P0", Status: "Blocked" },
-    });
+    const state = discovered({ present: true, id: "ITEM_61", values: { Estimate: 2, Iteration: "Iteration 2", Priority: "P0", Status: "Blocked" } });
     const result = planCompleteProjectReconciliation({ desired, policy, discovered: state, issueContentId: "ISSUE_61", now: "2026-07-18" });
     expect(result).toMatchObject({ ok: true, plan: { operations: [] } });
   });
