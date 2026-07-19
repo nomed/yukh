@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/nomed/yukh/compare/v0.3.1...v0.3.2) (2026-07-19)
+
+
+### Bug Fixes
+
+* use supported databaseId field for bootstrap discovery ([#58](https://github.com/nomed/yukh/issues/58)) ([e70903c](https://github.com/nomed/yukh/commit/e70903c88ad5f97c7f56bf33746cd9f343dcf87b))
+
 ## [0.3.1](https://github.com/nomed/yukh/compare/v0.3.0...v0.3.1) (2026-07-19)
 
 
