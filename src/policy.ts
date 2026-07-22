@@ -15,6 +15,7 @@ export interface PolicyField {
   derived: boolean;
   ownership?: ProjectFieldOwnership;
   values: Record<string, string>;
+  labels?: Record<string, string>;
 }
 
 export interface ProjectWorkflow {
@@ -45,7 +46,12 @@ export interface ProjectPolicy {
 export interface DesiredProjectState {
   project: { owner: string; repository: string; name: string };
   fields: Record<string, string | number>;
-  native: { issueType?: string; issueFields: Record<string, string | number> };
+  native: {
+    issueType?: string;
+    issueFields: Record<string, string | number>;
+    labels: string[];
+    managedLabels: string[];
+  };
   milestone?: string;
   iteration: { mode: "none" | "auto" | "explicit"; value?: string };
   execution: "agent" | "human" | "hybrid";
@@ -152,6 +158,11 @@ export function loadProjectPolicy(source: string): PolicyResult<ProjectPolicy> {
       if (!supported.has(key) && ownership !== "extension") diagnostics.push(diag("unknown_policy_field", `fields.${key} must declare ownership: extension`, `fields.${key}`));
       const derived = booleanAt(raw.derived, `fields.${key}.derived`, diagnostics, false);
       if (derived && ownership && ownership !== "derived") diagnostics.push(diag("conflicting_field_ownership", `fields.${key} cannot combine derived: true with ownership: ${ownership}`, `fields.${key}`));
+      const values = stringMap(raw.values, `fields.${key}.values`, diagnostics);
+      const labels = stringMap(raw.labels, `fields.${key}.labels`, diagnostics);
+      for (const labelKey of Object.keys(labels)) {
+        if (!(labelKey in values)) diagnostics.push(diag("unknown_label_mapping", `fields.${key}.labels.${labelKey} must map a declared contract value`, `fields.${key}.labels.${labelKey}`));
+      }
       if (projectField) fields[key] = {
         projectField,
         target,
@@ -159,7 +170,8 @@ export function loadProjectPolicy(source: string): PolicyResult<ProjectPolicy> {
         type: declaredType === "number" ? "number" : declaredType === "date" ? "date" : "string",
         derived,
         ...(ownership ? { ownership } : {}),
-        values: stringMap(raw.values, `fields.${key}.values`, diagnostics),
+        values,
+        labels,
       };
     }
   }
@@ -216,12 +228,15 @@ export function buildDesiredProjectState(contract: IssueContract, policy: Projec
   const fields: Record<string, string | number> = {};
   let issueType: string | undefined;
   const issueFields: Record<string, string | number> = {};
+  const labels = new Set<string>();
+  const managedLabels = new Set<string>();
   const assign = (rule: PolicyField, value: string | number): void => {
     if (rule.target === "issue_type") issueType = String(value);
     else if (rule.target === "issue_field") issueFields[rule.projectField] = value;
     else fields[rule.projectField] = value;
   };
   const effective = buildEffectiveProjectSchema(policy);
+  for (const { rule } of effective.fields) for (const label of Object.values(rule.labels ?? {})) managedLabels.add(label);
   for (const field of CONTRACT_FIELDS) {
     const effectiveField = effective.fields.find(({ logicalName }) => logicalName === field);
     if (!effectiveField || !isYukhManagedField(effectiveField) || field === "iteration") continue;
@@ -242,7 +257,11 @@ export function buildDesiredProjectState(contract: IssueContract, policy: Projec
     }
     const mapped = Object.keys(rule.values).length === 0 ? value : rule.values[value];
     if (mapped === undefined) diagnostics.push(diag("unsupported_contract_value", `${field} value '${value}' is not allowed by repository policy`, field));
-    else assign(rule, mapped);
+    else {
+      assign(rule, mapped);
+      const label = rule.labels?.[value];
+      if (label !== undefined) labels.add(label);
+    }
   }
 
   const declaredExtensions = new Set(
@@ -271,7 +290,11 @@ export function buildDesiredProjectState(contract: IssueContract, policy: Projec
     }
     const mapped = Object.keys(rule.values).length === 0 ? value : rule.values[value];
     if (mapped === undefined) diagnostics.push(diag("unsupported_contract_value", `${logicalName} value '${value}' is not allowed by repository policy`, `extensions.${logicalName}`));
-    else fields[rule.projectField] = mapped;
+    else {
+      fields[rule.projectField] = mapped;
+      const label = rule.labels?.[value];
+      if (label !== undefined) labels.add(label);
+    }
   }
 
   let milestone: string | undefined;
@@ -298,6 +321,8 @@ export function buildDesiredProjectState(contract: IssueContract, policy: Projec
       native: {
         ...(issueType !== undefined ? { issueType } : {}),
         issueFields: Object.fromEntries(Object.entries(issueFields).sort(([a], [b]) => a.localeCompare(b))),
+        labels: [...labels].sort(),
+        managedLabels: [...managedLabels].sort(),
       },
       ...(milestone !== undefined ? { milestone } : {}),
       iteration,
