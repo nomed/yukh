@@ -73,7 +73,10 @@ query ResolveIssue($owner: String!, $repository: String!, $number: Int!) {
           __typename
           ... on IssueFieldSingleSelectValue {
             value
-            field { id name }
+            field {
+              __typename
+              ... on IssueFieldSingleSelect { id name }
+            }
           }
         }
       }
