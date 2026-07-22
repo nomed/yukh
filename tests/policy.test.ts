@@ -34,6 +34,11 @@ fields:
     type: number
   iteration:
     project_field: Iteration
+  component:
+    project_field: Component
+    ownership: extension
+    required: true
+    values: { edge: Edge, hub: Hub, shared: Shared }
 milestones: { M0: M0 }
 defaults:
   execution: hybrid
@@ -59,7 +64,7 @@ const CONTRACT: IssueContract = {
   estimate: 2,
   iteration: "auto",
   execution: "human",
-  extensions: {},
+  extensions: { component: "edge" },
 };
 
 describe("loadProjectPolicy", () => {
@@ -105,7 +110,7 @@ describe("buildDesiredProjectState", () => {
       ok: true,
       value: {
         project: { owner: "nomed", repository: "uc-rust", name: "uc-rust" },
-        fields: { Area: "Governance", Estimate: 2, Priority: "P0", Size: "S", "Work Type": "Gate" },
+        fields: { Area: "Governance", Component: "Edge", Estimate: 2, Priority: "P0", Size: "S", "Work Type": "Gate" },
         milestone: "M0",
         iteration: { mode: "auto" },
         execution: "human",
@@ -140,6 +145,22 @@ describe("buildDesiredProjectState", () => {
     const { size: _size, ...withoutSize } = CONTRACT;
     const result = buildDesiredProjectState(withoutSize, loaded.value);
     expect(result).toMatchObject({ ok: false, diagnostics: [{ code: "missing_policy_required", path: "size" }] });
+  });
+
+  it("fails closed for undeclared extensions and unknown extension values", () => {
+    const loaded = loadProjectPolicy(POLICY);
+    if (!loaded.ok) throw new Error("policy should load");
+    expect(buildDesiredProjectState({ ...CONTRACT, extensions: { component: "agent" } }, loaded.value))
+      .toMatchObject({ ok: false, diagnostics: [{ code: "unsupported_contract_value", path: "extensions.component" }] });
+    expect(buildDesiredProjectState({ ...CONTRACT, extensions: { component: "edge", mystery: "x" } }, loaded.value))
+      .toMatchObject({ ok: false, diagnostics: [{ code: "undeclared_extension", path: "extensions.mystery" }] });
+  });
+
+  it("requires policy-declared extensions", () => {
+    const loaded = loadProjectPolicy(POLICY);
+    if (!loaded.ok) throw new Error("policy should load");
+    expect(buildDesiredProjectState({ ...CONTRACT, extensions: {} }, loaded.value))
+      .toMatchObject({ ok: false, diagnostics: [{ code: "missing_policy_required", path: "extensions.component" }] });
   });
 
   it("rejects auto iteration when disabled", () => {
