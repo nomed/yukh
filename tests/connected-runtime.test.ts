@@ -180,7 +180,11 @@ describe("connected runtime", () => {
     expect(result.summary).toContain("**Status:** dry-run");
     const issueQuery = transport.calls.find(({ query }) => query.includes("ResolveIssue"))?.query;
     expect(issueQuery).toContain("issueFieldValues(first: 100)");
-    expect(issueQuery).toContain("... on IssueFieldCommon");
+    expect(issueQuery).toContain("... on IssueFieldDate");
+    expect(issueQuery).toContain("... on IssueFieldNumber");
+    expect(issueQuery).toContain("... on IssueFieldSingleSelect");
+    expect(issueQuery).toContain("... on IssueFieldText");
+    expect(issueQuery).not.toContain("... on IssueFieldCommon");
     expect(issueQuery).toContain("value");
     expect(issueQuery).not.toContain("fieldValues(first: 100)");
     expect(issueQuery).not.toContain("... on IssueField {");
