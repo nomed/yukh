@@ -84,8 +84,10 @@ query ResolveIssue($owner: String!, $repository: String!, $number: Int!) {
     issueFields(first: 100) {
       nodes {
         __typename
-        ... on IssueFieldCommon { id name dataType }
+        ... on IssueFieldDate { id name dataType }
+        ... on IssueFieldNumber { id name dataType }
         ... on IssueFieldSingleSelect { id name dataType options { id name } }
+        ... on IssueFieldText { id name dataType }
       }
     }
   }
@@ -134,6 +136,29 @@ function errorOutcome(mode: RuntimeMode, diagnostics: ContractDiagnostic[]): Con
     applied: 0,
     remaining: 0,
     retryable: stable.some(({ code }) => code.includes("permission") || code.includes("api") || code.includes("mutation")),
+    writes: 0,
+  };
+}
+
+function skipOutcome(mode: RuntimeMode, diagnostics: ContractDiagnostic[]): ConnectedRuntimeOutcome {
+  const stable = [...diagnostics].sort((a, b) => a.path.localeCompare(b.path) || a.code.localeCompare(b.code));
+  const summary = [
+    `# Yukh ${mode}`,
+    "",
+    "**Status:** skip",
+    "",
+    ...stable.map(({ code, path, message }) => `- \`${path}\` — ${message} (\`${code}\`)`),
+  ].join("\n") + "\n";
+  return {
+    ok: true,
+    mode,
+    human: stable.map(({ path, message }) => `SKIP ${path}: ${message}`).join("\n"),
+    json: `${JSON.stringify({ status: "skip", diagnostics: stable }, null, 2)}\n`,
+    summary,
+    diagnostics: stable,
+    applied: 0,
+    remaining: 0,
+    retryable: false,
     writes: 0,
   };
 }
@@ -224,7 +249,12 @@ export async function runConnectedActionRuntime(
   const policyResult = loadProjectPolicy(environment.policySource);
   if (!policyResult.ok) return errorOutcome(mode, policyResult.diagnostics);
   const contractResult = parseIssueContract(issue.body, { issueNumber: environment.issueNumber, artifact: `${environment.repository}#${environment.issueNumber}` });
-  if (!contractResult.ok) return errorOutcome(mode, contractResult.diagnostics);
+  if (!contractResult.ok) {
+    if (contractResult.diagnostics.every(d => d.code === "missing_contract")) {
+      return skipOutcome(mode, contractResult.diagnostics);
+    }
+    return errorOutcome(mode, contractResult.diagnostics);
+  }
   const desiredResult = buildDesiredProjectState(contractResult.contract, policyResult.value);
   if (!desiredResult.ok) return errorOutcome(mode, desiredResult.diagnostics);
 

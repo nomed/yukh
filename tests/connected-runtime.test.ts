@@ -180,7 +180,11 @@ describe("connected runtime", () => {
     expect(result.summary).toContain("**Status:** dry-run");
     const issueQuery = transport.calls.find(({ query }) => query.includes("ResolveIssue"))?.query;
     expect(issueQuery).toContain("issueFieldValues(first: 100)");
-    expect(issueQuery).toContain("... on IssueFieldCommon");
+    expect(issueQuery).not.toContain("... on IssueFieldCommon");
+    expect(issueQuery).toContain("... on IssueFieldDate");
+    expect(issueQuery).toContain("... on IssueFieldNumber");
+    expect(issueQuery).toContain("... on IssueFieldSingleSelect");
+    expect(issueQuery).toContain("... on IssueFieldText");
     expect(issueQuery).toContain("value");
     expect(issueQuery).not.toContain("fieldValues(first: 100)");
     expect(issueQuery).not.toContain("... on IssueField {");
@@ -215,6 +219,19 @@ describe("connected runtime", () => {
     expect(result).toMatchObject({ ok: false, applied: 2, remaining: 3, retryable: true, writes: 2 });
     expect(result.diagnostics[0]?.code).toBe("project_mutation_failed");
     expect(result.summary).toContain("**Remaining operations:** 3");
+  });
+
+  it("skips gracefully when the issue has no Yukh contract", async () => {
+    const transport: GraphqlTransport = {
+      execute: async <T>() => ({
+        repository: { issue: { id: "ISSUE_80", number: 80, body: "## Problem\n\nNo Yukh contract here.", issueType: null, issueFieldValues: { nodes: [] } } },
+        organization: { issueTypes: { nodes: [] }, issueFields: { nodes: [] } },
+      } as T),
+    };
+    const result = await runConnectedActionRuntime({ ...baseInput, issueNumber: 80 }, transport);
+    expect(result).toMatchObject({ ok: true, diagnostics: [{ code: "missing_contract" }], applied: 0, writes: 0 });
+    expect(result.json).toContain('"status": "skip"');
+    expect(result.summary).toContain("**Status:** skip");
   });
 
   it("normalizes lookup permission failures", async () => {
