@@ -94,6 +94,18 @@ describe("planProjectMutation", () => {
       diagnostics: [{ code: "unsupported_field_mapping", path: "fields.Priority" }],
     });
   });
+
+  it("plans GitHub DATE mutations and rejects impossible dates", () => {
+    const field: ProjectFieldDefinition = { id: "FIELD_DATE", name: "Start date", dataType: "DATE", options: [], iterations: [] };
+    expect(planProjectMutation({ ...TARGET, field, desiredValue: "2026-07-22" })).toMatchObject({
+      ok: true,
+      plan: { operations: [expect.anything(), { kind: "set_project_field", value: { date: "2026-07-22" } }] },
+    });
+    expect(planProjectMutation({ ...TARGET, field, desiredValue: "2026-02-30" })).toMatchObject({
+      ok: false,
+      diagnostics: [{ code: "unsupported_field_value", path: "fields.Start date" }],
+    });
+  });
 });
 
 describe("SafeProjectMutationAdapter", () => {
