@@ -28,6 +28,7 @@ fields:
     type: string
     derived: false
     values: { feature: Feature }
+    labels: { feature: type:feature }
   area:
     project_field: Area
     required: true
@@ -41,6 +42,7 @@ fields:
     type: string
     derived: false
     values: { P1: P1 }
+    labels: { P1: priority:P1 }
   estimate:
     project_field: Estimate
     required: false
@@ -72,7 +74,9 @@ function issueResponse(aligned = false) {
             field: { id: "ISSUE_FIELD_PRIORITY", name: "Priority" },
           }] : [],
         },
+        labels: { nodes: aligned ? [{ id: "LABEL_PRIORITY", name: "priority:P1" }, { id: "LABEL_TYPE", name: "type:feature" }] : [] },
       },
+      labels: { nodes: [{ id: "LABEL_PRIORITY", name: "priority:P1" }, { id: "LABEL_TYPE", name: "type:feature" }, { id: "LABEL_KEEP", name: "keep" }] },
     },
     organization: {
       issueTypes: { nodes: [{ id: "TYPE_FEATURE", name: "Feature" }, { id: "TYPE_TASK", name: "Task" }] },
@@ -143,6 +147,8 @@ class RoutedTransport implements GraphqlTransport {
     if (query.includes("AddProjectItem")) return { addProjectV2ItemById: { item: { id: "ITEM_27" } } } as T;
     if (query.includes("SetIssueType")) return { updateIssue: { issue: { id: "ISSUE_27" } } } as T;
     if (query.includes("SetIssueField")) return { setIssueFieldValue: { issue: { id: "ISSUE_27" } } } as T;
+    if (query.includes("AddIssueLabel")) return { addLabelsToLabelable: { labelable: { id: "ISSUE_27" } } } as T;
+    if (query.includes("RemoveIssueLabel")) return { removeLabelsFromLabelable: { labelable: { id: "ISSUE_27" } } } as T;
     return { updateProjectV2ItemFieldValue: { projectV2Item: { id: "ITEM_27" } } } as T;
   }
 }
@@ -175,7 +181,7 @@ describe("connected runtime", () => {
   it("performs discovery and planning without writes in dry-run", async () => {
     const transport = new RoutedTransport(false);
     const result = await runConnectedActionRuntime({ ...baseInput, mode: "dry-run" }, transport);
-    expect(result).toMatchObject({ ok: true, mode: "dry-run", applied: 0, remaining: 5, writes: 0 });
+    expect(result).toMatchObject({ ok: true, mode: "dry-run", applied: 0, remaining: 7, writes: 0 });
     expect(transport.calls.filter(({ query }) => query.includes("mutation"))).toHaveLength(0);
     expect(result.summary).toContain("**Status:** dry-run");
     const issueQuery = transport.calls.find(({ query }) => query.includes("ResolveIssue"))?.query;
@@ -192,11 +198,25 @@ describe("connected runtime", () => {
     expect(issueQuery).not.toContain("... on IssueField {");
   });
 
+  it("avoids organization issue metadata when policy uses Project fields and labels", async () => {
+    const transport = new RoutedTransport(false);
+    const repositoryPolicy = policySource
+      .replace("    target: issue_type\n", "")
+      .replace("    target: issue_field\n", "");
+    const result = await runConnectedActionRuntime({ ...baseInput, policySource: repositoryPolicy, mode: "dry-run" }, transport);
+    expect(result.ok).toBe(true);
+    const query = transport.calls.find(({ query }) => query.includes("ResolveIssue"))?.query ?? "";
+    expect(query).toContain("labels(first: 100)");
+    expect(query).not.toContain("organization(login:");
+    expect(query).not.toContain("issueType { id name }");
+    expect(query).not.toContain("issueFieldValues(first: 100)");
+  });
+
   it("applies a missing item and all drifted fields", async () => {
     const transport = new RoutedTransport(false);
     const result = await runConnectedActionRuntime({ ...baseInput, mode: "apply", applyEnabled: true }, transport);
-    expect(result).toMatchObject({ ok: true, applied: 5, remaining: 0, retryable: false, writes: 5 });
-    expect(transport.calls.filter(({ query }) => query.includes("mutation"))).toHaveLength(5);
+    expect(result).toMatchObject({ ok: true, applied: 7, remaining: 0, retryable: false, writes: 7 });
+    expect(transport.calls.filter(({ query }) => query.includes("mutation"))).toHaveLength(7);
     expect(result.summary).toContain("**Status:** success");
   });
 
@@ -218,9 +238,9 @@ describe("connected runtime", () => {
   it("returns retryable partial failure details", async () => {
     const transport = new RoutedTransport(false, 3);
     const result = await runConnectedActionRuntime({ ...baseInput, mode: "apply", applyEnabled: true }, transport);
-    expect(result).toMatchObject({ ok: false, applied: 2, remaining: 3, retryable: true, writes: 2 });
+    expect(result).toMatchObject({ ok: false, applied: 2, remaining: 5, retryable: true, writes: 2 });
     expect(result.diagnostics[0]?.code).toBe("project_mutation_failed");
-    expect(result.summary).toContain("**Remaining operations:** 3");
+    expect(result.summary).toContain("**Remaining operations:** 5");
   });
 
   it("normalizes lookup permission failures", async () => {
