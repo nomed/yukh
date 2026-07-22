@@ -49,7 +49,10 @@ interface IssueResponse {
       value?: string;
       field?: { id?: string; name?: string } | null;
     } | null> };
-  } | null } | null;
+    labels?: { nodes?: Array<{ id?: string; name?: string } | null> };
+  } | null;
+  labels?: { nodes?: Array<{ id?: string; name?: string } | null> };
+  } | null;
   organization?: {
     issueTypes?: { nodes?: Array<{ id?: string; name?: string } | null> };
     issueFields?: { nodes?: Array<{
@@ -62,11 +65,8 @@ interface IssueResponse {
   } | null;
 }
 
-const ISSUE_QUERY = `
-query ResolveIssue($owner: String!, $repository: String!, $number: Int!) {
-  repository(owner: $owner, name: $repository) {
-    issue(number: $number) {
-      id number body
+function issueQuery(includeOrganizationFields: boolean): string {
+  const nativeIssueSelections = includeOrganizationFields ? `
       issueType { id name }
       issueFieldValues(first: 100) {
         nodes {
@@ -79,9 +79,8 @@ query ResolveIssue($owner: String!, $repository: String!, $number: Int!) {
             }
           }
         }
-      }
-    }
-  }
+      }` : "";
+  const organizationSelections = includeOrganizationFields ? `
   organization(login: $owner) {
     issueTypes(first: 100) { nodes { id name } }
     issueFields(first: 100) {
@@ -93,8 +92,20 @@ query ResolveIssue($owner: String!, $repository: String!, $number: Int!) {
         ... on IssueFieldText { id name dataType }
       }
     }
+  }` : "";
+  return `
+query ResolveIssue($owner: String!, $repository: String!, $number: Int!) {
+  repository(owner: $owner, name: $repository) {
+    issue(number: $number) {
+      id number body
+      labels(first: 100) { nodes { id name } }
+      ${nativeIssueSelections}
+    }
+    labels(first: 100) { nodes { id name } }
   }
+  ${organizationSelections}
 }`;
+}
 
 export interface ConnectedRuntimeInput extends Omit<RuntimeInput, "issueBody" | "tokenAvailable"> {
   token?: string;
@@ -181,6 +192,10 @@ export async function runConnectedActionRuntime(
   const [owner, repositoryName] = environment.repository.split("/");
   if (!owner || !repositoryName) return errorOutcome(mode, [diagnostic("invalid_repository", "repository must use owner/name format", "repository")]);
   const transport = transportOverride ?? new GitHubGraphqlTransport(token!);
+  const policyResult = loadProjectPolicy(environment.policySource);
+  if (!policyResult.ok) return errorOutcome(mode, policyResult.diagnostics);
+  const includeOrganizationFields = Object.values(policyResult.value.fields)
+    .some((field) => field?.target === "issue_type" || field?.target === "issue_field");
 
   let issue: {
     id: string;
@@ -189,9 +204,11 @@ export async function runConnectedActionRuntime(
     observedIssueFields: Record<string, string | number>;
     issueTypes: NativeIssueType[];
     issueFields: NativeIssueField[];
+    observedLabels: string[];
+    availableLabels: Array<{ id: string; name: string }>;
   };
   try {
-    const response = await transport.execute<IssueResponse>(ISSUE_QUERY, { owner, repository: repositoryName, number: environment.issueNumber });
+    const response = await transport.execute<IssueResponse>(issueQuery(includeOrganizationFields), { owner, repository: repositoryName, number: environment.issueNumber });
     const node = response.repository?.issue;
     if (!node?.id) return errorOutcome(mode, [diagnostic("issue_not_found", `issue #${environment.issueNumber} was not found`, "issue")]);
     const observedIssueFields: Record<string, string | number> = {};
@@ -212,6 +229,14 @@ export async function runConnectedActionRuntime(
           .filter((value): value is { id: string; name: string } => Boolean(value?.id && value?.name))
           .map(({ id: optionId, name: optionName }) => ({ id: optionId, name: optionName })),
       }));
+    const observedLabels = (node.labels?.nodes ?? [])
+      .filter((value): value is { id: string; name: string } => Boolean(value?.id && value?.name))
+      .map(({ name }) => name)
+      .sort();
+    const availableLabels = (response.repository?.labels?.nodes ?? [])
+      .filter((value): value is { id: string; name: string } => Boolean(value?.id && value?.name))
+      .map(({ id, name }) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
     issue = {
       id: node.id,
       body: input.issueBody ?? node.body ?? "",
@@ -219,6 +244,8 @@ export async function runConnectedActionRuntime(
       observedIssueFields,
       issueTypes,
       issueFields,
+      observedLabels,
+      availableLabels,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -226,8 +253,6 @@ export async function runConnectedActionRuntime(
     return errorOutcome(mode, [diagnostic(permission ? "github_permission_denied" : "github_api_error", `GitHub issue lookup failed: ${message}`, "issue")]);
   }
 
-  const policyResult = loadProjectPolicy(environment.policySource);
-  if (!policyResult.ok) return errorOutcome(mode, policyResult.diagnostics);
   const contractResult = parseIssueContract(issue.body, { issueNumber: environment.issueNumber, artifact: `${environment.repository}#${environment.issueNumber}` });
   if (!contractResult.ok) return errorOutcome(mode, contractResult.diagnostics);
   const desiredResult = buildDesiredProjectState(contractResult.contract, policyResult.value);
@@ -257,6 +282,10 @@ export async function runConnectedActionRuntime(
     desiredIssueFields: desiredResult.value.native.issueFields,
     observedIssueFields: issue.observedIssueFields,
     issueFields: issue.issueFields,
+    desiredLabels: desiredResult.value.native.labels,
+    managedLabels: desiredResult.value.native.managedLabels,
+    observedLabels: issue.observedLabels,
+    availableLabels: issue.availableLabels,
   });
   if (!nativePlanned.ok) return errorOutcome(mode, nativePlanned.diagnostics);
   const totalPlanned = planned.plan.operations.length + nativePlanned.operations.length;
