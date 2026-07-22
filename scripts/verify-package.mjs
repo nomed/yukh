@@ -30,14 +30,14 @@ if (action.includes("nomed/yukh@main")) throw new Error("action package must not
 const selfDryRun = await readFile(".github/workflows/yukh-self-dry-run.yml", "utf8");
 const selfApply = await readFile(".github/workflows/yukh-self-apply.yml", "utf8");
 for (const [name, workflow] of [["self dry-run", selfDryRun], ["self apply", selfApply]]) {
-  if (!workflow.includes("uses: nomed/yukh@v0.2.1")) throw new Error(`${name} must use the verified immutable release`);
+  if (!workflow.includes("uses: nomed/yukh@e862f109bb038f8ec0699e42ac2da11c9ef42549")) throw new Error(`${name} must use the verified immutable release`);
   if (workflow.includes("fromJSON(vars.YUKH_PROJECT_NUMBER)")) throw new Error(`${name} must not parse the project variable with fromJSON`);
 }
 
 const reusableWorkflow = await readFile(".github/workflows/yukh-reconcile.yml", "utf8");
 for (const snippet of [
   "repository: nomed/yukh",
-  "ref: v0.2.1",
+  "ref: e862f109bb038f8ec0699e42ac2da11c9ef42549",
   "path: .yukh-action",
   "uses: ./.yukh-action",
 ]) {
