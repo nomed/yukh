@@ -7,8 +7,10 @@ const policySource = `version: 1
 project: { owner: nomed, repository: example, name: Example }
 contract: { marker: yukh, schema: 1 }
 fields:
-  kind: { project_field: Work Type, required: true, values: { feature: Feature, task: Task } }
-  priority: { project_field: Work Priority, required: true, values: { P0: P0, P1: P1 } }
+  kind: { project_field: Type, required: true, values: { feature: Feature, task: Task } }
+  area: { project_field: Area, required: true, values: { contract: Contract, storage: Storage } }
+  priority: { project_field: Priority, required: true, values: { P0: Critical, P1: High } }
+  component: { project_field: Component, ownership: extension, required: true, values: { edge: Edge, hub: Hub, shared: Shared } }
   estimate: { project_field: Estimate, type: number }
   status: { project_field: Status, derived: true }
 workflow:
@@ -31,7 +33,8 @@ describe("Project bootstrap planner", () => {
     expect(policy.ok).toBe(true);
     if (!policy.ok) return;
     const desired = desiredProjectSchema(policy.value);
-    expect(desired.fields.map(({ name }) => name)).toEqual(["Estimate", "Status", "Work Priority", "Work Type"]);
+    expect(desired.fields.map(({ name }) => name)).toEqual(["Area", "Component", "Estimate", "Priority", "Status", "Type"]);
+    expect(desired.fields.find(({ name }) => name === "Component")?.options.map(({ name }) => name)).toEqual(["Edge", "Hub", "Shared"]);
     expect(desired.fields.find(({ name }) => name === "Status")?.options.map(({ name }) => name)).toEqual(statuses);
   });
 
@@ -70,11 +73,13 @@ class Transport implements GraphqlTransport {
     return { repositoryOwner: { projectV2: { id: "P", title: "Example", fields: { nodes: this.converged ? [
       custom("E", "Estimate", "NUMBER"),
       { __typename: "ProjectV2SingleSelectField", id: "S", name: "Status", dataType: "SINGLE_SELECT", databaseId: null, options: statusNames.map((name) => opt(name, name)) },
-      custom("P", "Work Priority", "SINGLE_SELECT", [opt("0", "P0"), opt("1", "P1")]),
-      custom("T", "Work Type", "SINGLE_SELECT", [opt("f", "Feature"), opt("t", "Task")]),
+      custom("A", "Area", "SINGLE_SELECT", [opt("c", "Contract"), opt("s", "Storage")]),
+      custom("C", "Component", "SINGLE_SELECT", [opt("e", "Edge"), opt("h", "Hub"), opt("s", "Shared")]),
+      custom("P", "Priority", "SINGLE_SELECT", [opt("0", "Critical"), opt("1", "High")]),
+      custom("T", "Type", "SINGLE_SELECT", [opt("f", "Feature"), opt("t", "Task")]),
     ] : [
       { __typename: "ProjectV2SingleSelectField", id: "S", name: "Status", dataType: "SINGLE_SELECT", databaseId: null, options: statusNames.map((name) => opt(name, name)) },
-      custom("P", "Work Priority", "SINGLE_SELECT", [opt("0", "P0")]),
+      custom("P", "Priority", "SINGLE_SELECT", [opt("0", "Critical")]),
     ] } } } } as T;
   }
 }
@@ -91,7 +96,7 @@ describe("Project bootstrap runtime", () => {
   it("apply and second apply are idempotent", async () => {
     const first = await runProjectBootstrap({ policySource, projectNumber: 3, mode: "apply", applyEnabled: true, tokenAvailable: true }, new Transport());
     expect(first.ok).toBe(true);
-    expect(first.applied).toBe(4);
+    expect(first.applied).toBe(6);
     const second = await runProjectBootstrap({ policySource, projectNumber: 3, mode: "apply", applyEnabled: true, tokenAvailable: true }, new Transport(true));
     expect(second.ok).toBe(true);
     expect(second.applied).toBe(0);
