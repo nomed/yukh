@@ -53,12 +53,12 @@ jobs:
 
 ## Apply mode
 
-Apply is opt-in and requires both `mode: apply` and `apply-enabled: true`, together with a dedicated token that can access the target Project.
+Apply is opt-in and requires both `mode: apply` and `apply-enabled: true`, together with a dedicated token that can access the target Project. When apply may reconcile milestones, parent/sub-issue links, or issue dependencies, the repository token must also have `Issues: write`.
 
 ```yaml
 permissions:
   contents: read
-  issues: read
+  issues: write
 
 jobs:
   yukh:
@@ -75,7 +75,7 @@ jobs:
           github-token: ${{ secrets.YUKH_PROJECT_TOKEN }}
 ```
 
-The default `GITHUB_TOKEN` remains read-only. User- or organization-owned Projects generally require a GitHub App installation token or narrowly scoped fine-grained PAT with explicit Project access.
+The default `GITHUB_TOKEN` remains read-only unless the workflow grants broader repository permissions. User- or organization-owned Projects generally require a GitHub App installation token or narrowly scoped fine-grained PAT with explicit Project access. Native milestone, sub-issue, and dependency reconciliation also requires repository `Issues: write`.
 
 Apply resolves the issue, discovers fields, options, iterations and existing membership, then applies only drift. A repeated apply against matching state performs no writes.
 

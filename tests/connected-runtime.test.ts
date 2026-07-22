@@ -229,6 +229,7 @@ describe("connected runtime", () => {
         issueDatabaseId: 927,
         observed: { dependsOn: [] },
         milestoneNumbers: { R0: 7 },
+        parentDatabaseIds: { 1: 901 },
         dependencyDatabaseIds: { 2: 902 },
       }),
       apply: async ({ operation }) => { calls.push(operation); },
@@ -242,6 +243,54 @@ describe("connected runtime", () => {
     );
     expect(result).toMatchObject({ ok: true, applied: 10, remaining: 0, writes: 10 });
     expect(calls.map(({ kind }) => kind)).toEqual(["set_milestone", "set_parent", "add_dependency"]);
+  });
+
+  it("preserves zero-op dry-run semantics when native governance is already aligned", async () => {
+    const transport = new RoutedTransport(true);
+    const governance: NativeGovernanceAdapter = {
+      discover: async () => ({
+        issueDatabaseId: 927,
+        observed: { milestone: "R0", parent: 1, dependsOn: [2] },
+        milestoneNumbers: { R0: 7 },
+        parentDatabaseIds: { 1: 901 },
+        dependencyDatabaseIds: { 2: 902 },
+      }),
+      apply: async () => { throw new Error("unused"); },
+    };
+    const body = issueBody.replace("estimate: 3", "estimate: 3\nmilestone: R0\nparent: 1\nchildren: [99]\ndepends_on: [2]\nblocks: [100]");
+    const policy = policySource.replace("defaults:\n", "milestones: { R0: R0 }\ndefaults:\n");
+    const result = await runConnectedActionRuntime(
+      { ...baseInput, issueBody: body, policySource: policy, mode: "dry-run" },
+      transport,
+      governance,
+    );
+    expect(result).toMatchObject({ ok: true, applied: 0, remaining: 0, writes: 0 });
+    expect(result.human).toContain("Planned changes: 0");
+    expect(result.human).not.toContain("relationships.children");
+    expect(result.human).not.toContain("relationships.blocks");
+    expect(result.summary).toContain("No drift detected.");
+  });
+
+  it("fails closed before apply when a declared parent reference is missing", async () => {
+    const transport = new RoutedTransport(true);
+    const governance: NativeGovernanceAdapter = {
+      discover: async () => ({
+        issueDatabaseId: 927,
+        observed: { dependsOn: [] },
+        milestoneNumbers: { R0: 7 },
+        parentDatabaseIds: {},
+        dependencyDatabaseIds: {},
+      }),
+      apply: async () => { throw new Error("unused"); },
+    };
+    const body = issueBody.replace("estimate: 3", "estimate: 3\nmilestone: R0\nparent: 1");
+    const policy = policySource.replace("defaults:\n", "milestones: { R0: R0 }\ndefaults:\n");
+    const result = await runConnectedActionRuntime(
+      { ...baseInput, issueBody: body, policySource: policy, mode: "dry-run" },
+      transport,
+      governance,
+    );
+    expect(result).toMatchObject({ ok: false, diagnostics: [{ code: "native_parent_not_found", path: "relationships.parent" }] });
   });
 
   it("performs no writes when repeated state already matches", async () => {

@@ -91,6 +91,7 @@ Apply mode requires all of the following:
 - `mode: apply`;
 - `apply-enabled: true`;
 - a token with access to the target repository and Project;
+- repository `Issues: write` permission when reconciling milestones, parent/sub-issues, or issue dependencies;
 - a valid issue contract and policy mapping.
 
 Dry-run and apply build the same deterministic plan. Apply executes only supported operations and reports remaining drift and diagnostics explicitly.

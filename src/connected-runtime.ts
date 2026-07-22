@@ -268,6 +268,7 @@ export async function runConnectedActionRuntime(
   const governanceEnabled = governanceDesired.milestone !== undefined || governanceDesired.parent !== undefined || governanceDesired.dependsOn.length > 0;
   const governanceAdapter = governanceOverride ?? (token ? new GitHubRestNativeGovernanceAdapter(token) : undefined);
   let governanceOperations: NativeGovernanceOperation[] = [];
+  let governanceObserved: { milestone?: string; parent?: number; dependsOn: number[] } | undefined;
   if (governanceEnabled) {
     if (!governanceAdapter) return errorOutcome(mode, [diagnostic("native_governance_transport_missing", "Native milestone and relationship reconciliation requires a REST transport", "native")]);
     try {
@@ -276,6 +277,7 @@ export async function runConnectedActionRuntime(
         issueNumber: environment.issueNumber,
         desired: governanceDesired,
       });
+      governanceObserved = governanceDiscovered.observed;
       const governancePlanned = planNativeGovernance(governanceDesired, governanceDiscovered);
       if (!governancePlanned.ok) return errorOutcome(mode, governancePlanned.diagnostics);
       governanceOperations = governancePlanned.plan.operations;
@@ -321,7 +323,16 @@ export async function runConnectedActionRuntime(
   const report = buildReadOnlyReport({
     issueBody: issue.body,
     policySource: environment.policySource,
-    observed: discovered.value.observed,
+    observed: {
+      ...discovered.value.observed,
+      ...(governanceObserved?.milestone !== undefined ? { milestone: governanceObserved.milestone } : {}),
+      relationships: {
+        ...(governanceObserved?.parent !== undefined ? { parent: governanceObserved.parent } : {}),
+        children: [...desiredResult.value.relationships.children],
+        dependsOn: governanceObserved?.dependsOn ?? discovered.value.observed.relationships.dependsOn,
+        blocks: [...desiredResult.value.relationships.blocks],
+      },
+    },
     issueNumber: environment.issueNumber,
     artifact: `${environment.repository}#${environment.issueNumber}`,
   });
