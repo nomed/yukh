@@ -9,6 +9,7 @@ const required = [
   "src/runtime.ts",
   "src/project.ts",
   "src/mutation.ts",
+  "src/native-governance.ts",
   "src/reconcile.ts",
   "src/policy.ts",
   "src/contract.ts",

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GraphqlTransport } from "../src/project.js";
+import type { NativeGovernanceAdapter, NativeGovernanceOperation } from "../src/native-governance.js";
 import { GitHubGraphqlTransport, runConnectedActionRuntime, type FetchLike } from "../src/connected-runtime.js";
 
 const issueBody = `# Connected runtime
@@ -218,6 +219,29 @@ describe("connected runtime", () => {
     expect(result).toMatchObject({ ok: true, applied: 7, remaining: 0, retryable: false, writes: 7 });
     expect(transport.calls.filter(({ query }) => query.includes("mutation"))).toHaveLength(7);
     expect(result.summary).toContain("**Status:** success");
+  });
+
+  it("includes milestone, parent, and depends_on mutations in connected apply and idempotency counts", async () => {
+    const transport = new RoutedTransport(false);
+    const calls: NativeGovernanceOperation[] = [];
+    const governance: NativeGovernanceAdapter = {
+      discover: async () => ({
+        issueDatabaseId: 927,
+        observed: { dependsOn: [] },
+        milestoneNumbers: { R0: 7 },
+        dependencyDatabaseIds: { 2: 902 },
+      }),
+      apply: async ({ operation }) => { calls.push(operation); },
+    };
+    const body = issueBody.replace("estimate: 3", "estimate: 3\nmilestone: R0\nparent: 1\ndepends_on: [2]");
+    const policy = policySource.replace("defaults:\n", "milestones: { R0: R0 }\ndefaults:\n");
+    const result = await runConnectedActionRuntime(
+      { ...baseInput, issueBody: body, policySource: policy, mode: "apply", applyEnabled: true },
+      transport,
+      governance,
+    );
+    expect(result).toMatchObject({ ok: true, applied: 10, remaining: 0, writes: 10 });
+    expect(calls.map(({ kind }) => kind)).toEqual(["set_milestone", "set_parent", "add_dependency"]);
   });
 
   it("performs no writes when repeated state already matches", async () => {

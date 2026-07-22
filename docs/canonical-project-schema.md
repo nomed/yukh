@@ -66,6 +66,12 @@ fields:
 
 Date extensions use `type: date`, do not declare `values`, and carry a real ISO calendar date (`YYYY-MM-DD`) in the issue contract. Yukh bootstraps them as GitHub `DATE` fields and reconciles them without converting them to single-select options.
 
+## Native issue governance
+
+When a contract declares `milestone`, `parent`, or `depends_on`, connected reconciliation discovers and applies the corresponding repository-native state. Milestones are assigned through the issue endpoint, parents through GitHub's sub-issue endpoints, and dependencies through the `blocked_by` endpoints. These mutations are included in `applied` and `remaining`, so a zero-operation second pass proves native convergence as well as Project-field and label convergence.
+
+Apply mode requires repository `Issues: write` permission for these operations. Missing milestones, referenced issues, permissions, or REST capabilities fail closed. `children` and `blocks` remain reciprocal reporting views; the authoritative contract inputs are `parent` and `depends_on`.
+
 ## Local custom initialization
 
 Unsupported Project field types or repository-specific automation remain explicit local workflow steps. Yukh never executes arbitrary repository scripts implicitly.
