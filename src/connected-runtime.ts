@@ -300,7 +300,7 @@ export async function runConnectedActionRuntime(
   const nativeApplied = await new SafeNativeIssueMutationAdapter(transport).apply(nativePlanned.operations);
   const appliedCount = projectApplied.applied + nativeApplied.applied;
   const remainingCount = nativePlanned.operations.length - nativeApplied.applied;
-  const combinedApply: CompleteReconciliationApplyResult = {
+  const combinedApply = {
     ok: nativeApplied.ok,
     applied: appliedCount,
     remaining: nativePlanned.operations.slice(nativeApplied.applied),
