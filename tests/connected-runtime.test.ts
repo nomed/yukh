@@ -180,6 +180,8 @@ describe("connected runtime", () => {
     expect(result.summary).toContain("**Status:** dry-run");
     const issueQuery = transport.calls.find(({ query }) => query.includes("ResolveIssue"))?.query;
     expect(issueQuery).toContain("issueFieldValues(first: 100)");
+    expect(issueQuery).toContain("field {\n              __typename\n              ... on IssueFieldSingleSelect { id name }");
+    expect(issueQuery).not.toContain("field { id name }");
     expect(issueQuery).toContain("... on IssueFieldDate");
     expect(issueQuery).toContain("... on IssueFieldNumber");
     expect(issueQuery).toContain("... on IssueFieldSingleSelect");
