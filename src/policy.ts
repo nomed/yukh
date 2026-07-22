@@ -9,7 +9,7 @@ export type PolicyFieldTarget = "project_field" | "issue_type" | "issue_field";
 
 export interface PolicyField {
   projectField: string;
-  target: PolicyFieldTarget;
+  target?: PolicyFieldTarget;
   required: boolean;
   type: "string" | "number";
   derived: boolean;
