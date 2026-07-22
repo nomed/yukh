@@ -124,7 +124,7 @@ describe("buildDesiredProjectState", () => {
       value: {
         project: { owner: "nomed", repository: "uc-rust", name: "uc-rust" },
         fields: { Area: "Governance", Component: "Edge", Estimate: 2, Size: "S" },
-        native: { issueType: "Gate", issueFields: { Priority: "P0" } },
+        native: { issueType: "Gate", issueFields: { Priority: "P0" }, labels: [], managedLabels: [] },
         milestone: "M0",
         iteration: { mode: "auto" },
         execution: "human",
@@ -151,6 +151,23 @@ describe("buildDesiredProjectState", () => {
     if (!loaded.ok) throw new Error("policy should load");
     const result = buildDesiredProjectState({ ...CONTRACT, priority: "P9" }, loaded.value);
     expect(result).toMatchObject({ ok: false, diagnostics: [{ code: "unsupported_contract_value", path: "priority" }] });
+  });
+
+  it("builds deterministic desired and managed label catalogs", () => {
+    const source = POLICY
+      .replace("values: { gate: Gate, task: Task }", "values: { gate: Gate, task: Task }\n    labels: { gate: type:gate, task: type:task }")
+      .replace("values: { P0: P0, P1: P1 }", "values: { P0: P0, P1: P1 }\n    labels: { P0: priority:P0, P1: priority:P1 }");
+    const loaded = loadProjectPolicy(source);
+    if (!loaded.ok) throw new Error("policy should load");
+    expect(buildDesiredProjectState(CONTRACT, loaded.value)).toMatchObject({
+      ok: true,
+      value: { native: { labels: ["priority:P0", "type:gate"], managedLabels: ["priority:P0", "priority:P1", "type:gate", "type:task"] } },
+    });
+  });
+
+  it("rejects label mappings for undeclared contract values", () => {
+    expect(loadProjectPolicy(POLICY.replace("values: { gate: Gate, task: Task }", "values: { gate: Gate, task: Task }\n    labels: { feature: type:feature }")))
+      .toMatchObject({ ok: false, diagnostics: expect.arrayContaining([expect.objectContaining({ code: "unknown_label_mapping", path: "fields.kind.labels.feature" })]) });
   });
 
   it("reports required values missing from the contract", () => {
