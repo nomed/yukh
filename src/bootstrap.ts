@@ -1,5 +1,5 @@
 import type { ContractDiagnostic } from "./contract.js";
-import { buildEffectiveProjectSchema, isYukhManagedField } from "./effective-schema.js";
+import { buildEffectiveProjectSchema, isProjectFieldTarget, isYukhManagedField } from "./effective-schema.js";
 import type { GraphqlTransport } from "./project.js";
 import { loadProjectPolicy, type ProjectPolicy } from "./policy.js";
 
@@ -70,7 +70,7 @@ export function desiredProjectSchema(policy: ProjectPolicy): { fields: Bootstrap
   const effective = buildEffectiveProjectSchema(policy);
   for (const field of effective.fields) {
     const { logicalName, rule } = field;
-    if (!isYukhManagedField(field) || logicalName === "status" || logicalName === "iteration") continue;
+    if (!isYukhManagedField(field) || !isProjectFieldTarget(field) || logicalName === "status" || logicalName === "iteration") continue;
     let spec: BootstrapFieldSpec;
     if (rule.type === "number") spec = { name: rule.projectField, dataType: "NUMBER", options: [], management: "custom" };
     else if (Object.keys(rule.values).length > 0) spec = selectSpec(rule.projectField, Object.values(rule.values).sort((a, b) => a.localeCompare(b)));
