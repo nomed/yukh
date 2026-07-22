@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/nomed/yukh/compare/v0.7.0...v0.8.0) (2026-07-22)
+
+
+### Features
+
+* reconcile native milestones, parents, and dependencies ([#89](https://github.com/nomed/yukh/issues/89)) ([816d1e6](https://github.com/nomed/yukh/commit/816d1e6242b352656a86ae122a27ffe0b8ab954a))
+
 ## [0.7.0](https://github.com/nomed/yukh/compare/v0.6.1...v0.7.0) (2026-07-22)
 
 
