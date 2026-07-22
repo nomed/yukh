@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/nomed/yukh/compare/v0.5.0...v0.6.0) (2026-07-22)
+
+
+### Features
+
+* govern native issue-backed fields ([#72](https://github.com/nomed/yukh/issues/72)) ([d8203d9](https://github.com/nomed/yukh/commit/d8203d996c9b7bf54ef886d0966fb443a23b6ee1)), closes [#71](https://github.com/nomed/yukh/issues/71)
+
 ## [0.5.0](https://github.com/nomed/yukh/compare/v0.4.0...v0.5.0) (2026-07-22)
 
 
