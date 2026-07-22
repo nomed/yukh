@@ -2,7 +2,7 @@
 
 **Policy-driven GitHub Project reconciliation for agentic repositories.**
 
-Yukh lets people and AI agents create ordinary GitHub issues while a GitHub Action interprets a hidden, machine-readable contract and reconciles the issue into a GitHub Project.
+Yukh lets people and AI agents create ordinary GitHub issues while a GitHub Action interprets a hidden, machine-readable contract and reconciles Project fields, managed labels, milestones, parent/sub-issue hierarchy, and issue dependencies.
 
 GitHub Issues remain the human and agent collaboration surface. GitHub Projects remain the operational control plane. Yukh provides the policy, validation, planning, and idempotent reconciliation layer between them.
 
