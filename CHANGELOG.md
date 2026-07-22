@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.0](https://github.com/nomed/yukh/compare/v0.4.0...v0.5.0) (2026-07-22)
+
+
+### Features
+
+* add policy-governed contract extensions ([#68](https://github.com/nomed/yukh/issues/68)) ([fba7be6](https://github.com/nomed/yukh/commit/fba7be6e761cb88cbc09da7133db9e4d8b3419a1))
+* define canonical Project schema ownership ([#63](https://github.com/nomed/yukh/issues/63)) ([35b38c0](https://github.com/nomed/yukh/commit/35b38c0b3225c405ab0b50b4b6906923770cba25))
+
 ## [0.4.0](https://github.com/nomed/yukh/compare/v0.3.2...v0.4.0) (2026-07-19)
 
 
