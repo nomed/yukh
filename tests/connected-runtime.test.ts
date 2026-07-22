@@ -23,6 +23,7 @@ contract:
 fields:
   kind:
     project_field: Type
+    target: issue_type
     required: true
     type: string
     derived: false
@@ -35,6 +36,7 @@ fields:
     values: {}
   priority:
     project_field: Priority
+    target: issue_field
     required: true
     type: string
     derived: false
@@ -55,7 +57,37 @@ safety:
   comment_on_validation_error: true
 `;
 
-const issueResponse = { repository: { issue: { id: "ISSUE_27", number: 27, body: issueBody } } };
+function issueResponse(aligned = false) {
+  return {
+    repository: {
+      issue: {
+        id: "ISSUE_27",
+        number: 27,
+        body: issueBody,
+        issueType: aligned ? { id: "TYPE_FEATURE", name: "Feature" } : { id: "TYPE_TASK", name: "Task" },
+        fieldValues: {
+          nodes: aligned ? [{
+            __typename: "IssueFieldSingleSelectValue",
+            name: "P1",
+            field: { id: "ISSUE_FIELD_PRIORITY", name: "Priority" },
+          }] : [],
+        },
+      },
+    },
+    organization: {
+      issueTypes: { nodes: [{ id: "TYPE_FEATURE", name: "Feature" }, { id: "TYPE_TASK", name: "Task" }] },
+      issueFields: {
+        nodes: [{
+          __typename: "IssueFieldSingleSelect",
+          id: "ISSUE_FIELD_PRIORITY",
+          name: "Priority",
+          dataType: "SINGLE_SELECT",
+          options: [{ id: "ISSUE_OPTION_P1", name: "P1" }],
+        }],
+      },
+    },
+  };
+}
 
 function projectResponse(present = false) {
   return {
@@ -102,13 +134,15 @@ class RoutedTransport implements GraphqlTransport {
 
   async execute<T>(query: string, variables: Record<string, unknown>): Promise<T> {
     this.calls.push({ query, variables });
-    if (query.includes("ResolveIssue")) return issueResponse as T;
+    if (query.includes("ResolveIssue")) return issueResponse(this.present) as T;
     if (query.includes("DiscoverOrganizationProject") || query.includes("DiscoverUserProject")) {
       return projectResponse(this.present) as T;
     }
     this.mutationIndex += 1;
     if (this.failMutationAt === this.mutationIndex) throw new Error("gateway timeout");
     if (query.includes("AddProjectItem")) return { addProjectV2ItemById: { item: { id: "ITEM_27" } } } as T;
+    if (query.includes("SetIssueType")) return { updateIssue: { issue: { id: "ISSUE_27" } } } as T;
+    if (query.includes("SetIssueField")) return { setIssueFieldValue: { issue: { id: "ISSUE_27" } } } as T;
     return { updateProjectV2ItemFieldValue: { projectV2Item: { id: "ITEM_27" } } } as T;
   }
 }
