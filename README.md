@@ -59,7 +59,7 @@ depends_on: [18, 21]
 Implement the next reconciliation capability.
 ```
 
-The repository policy under `.yukh/project.yaml` defines the accepted values and their mapping to Project fields. Yukh does not invent missing planning information and does not overwrite unmanaged human-owned values unless the policy explicitly allows it.
+The repository policy under `.yukh/project.yaml` defines the accepted values and their mapping to Project fields and optional managed labels. Yukh does not invent missing planning information and does not overwrite unmanaged human-owned fields or labels unless the policy explicitly declares them.
 
 See [`spec/issue-contract.md`](spec/issue-contract.md) for the contract specification.
 
