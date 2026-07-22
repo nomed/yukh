@@ -22,6 +22,7 @@ function project(overrides: Record<string, unknown> = {}): any {
         fields: {
           nodes: [
             { __typename: "ProjectV2Field", id: "F_EST", name: "Estimate", dataType: "NUMBER" },
+            { __typename: "ProjectV2Field", id: "F_DATE", name: "Start date", dataType: "DATE" },
             {
               __typename: "ProjectV2SingleSelectField",
               id: "F_PRI",
@@ -50,6 +51,7 @@ function project(overrides: Record<string, unknown> = {}): any {
               fieldValues: {
                 nodes: [
                   { __typename: "ProjectV2ItemFieldNumberValue", number: 2, field: { name: "Estimate" } },
+                  { __typename: "ProjectV2ItemFieldDateValue", date: "2026-07-22", field: { name: "Start date" } },
                   { __typename: "ProjectV2ItemFieldSingleSelectValue", name: "P0", field: { name: "Priority" } },
                   { __typename: "ProjectV2ItemFieldIterationValue", title: "Iteration 1", field: { name: "Iteration" } },
                 ],
@@ -75,18 +77,18 @@ describe("ReadOnlyProjectAdapter", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.project).toEqual({ id: "PVT_1", number: 7, title: "UC Rust", owner: "nomed" });
-    expect(result.value.fields.map(({ name }) => name)).toEqual(["Estimate", "Iteration", "Priority"]);
+    expect(result.value.fields.map(({ name }) => name)).toEqual(["Estimate", "Iteration", "Priority", "Start date"]);
     expect(result.value.fields.find(({ name }) => name === "Priority")?.options.map(({ name }) => name)).toEqual(["P0", "P1"]);
     expect(result.value.fields.find(({ name }) => name === "Iteration")?.iterations.map(({ title }) => title)).toEqual(["Iteration 1", "Iteration 2"]);
     expect(result.value.issueItem).toEqual({
       present: true,
       id: "ITEM_61",
-      values: { Estimate: 2, Iteration: "Iteration 1", Priority: "P0" },
+      values: { Estimate: 2, Iteration: "Iteration 1", Priority: "P0", "Start date": "2026-07-22" },
       iteration: "Iteration 1",
     });
     expect(result.value.observed).toMatchObject({
       projectItemPresent: true,
-      fields: { Estimate: 2, Iteration: "Iteration 1", Priority: "P0" },
+      fields: { Estimate: 2, Iteration: "Iteration 1", Priority: "P0", "Start date": "2026-07-22" },
       iteration: "Iteration 1",
     });
   });
