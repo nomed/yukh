@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.7.0](https://github.com/nomed/yukh/compare/v0.6.1...v0.7.0) (2026-07-22)
+
+
+### Features
+
+* govern declared repository labels ([#86](https://github.com/nomed/yukh/issues/86)) ([e862f10](https://github.com/nomed/yukh/commit/e862f109bb038f8ec0699e42ac2da11c9ef42549))
+
+
+### Bug Fixes
+
+* query concrete native issue field types ([#81](https://github.com/nomed/yukh/issues/81)) ([8c1555d](https://github.com/nomed/yukh/commit/8c1555d781d1f2d7081bc449f4ac1e71f7e07dd7))
+* select nested native issue field union safely ([#84](https://github.com/nomed/yukh/issues/84)) ([b976a22](https://github.com/nomed/yukh/commit/b976a22e9f544aeb34ab94f0a7cb906c91d54f66))
+* support native Project DATE fields ([#78](https://github.com/nomed/yukh/issues/78)) ([aeaa2b0](https://github.com/nomed/yukh/commit/aeaa2b0df7361bf4da7ed7a1200511ce5fbf08a3))
+
 ## [0.6.1](https://github.com/nomed/yukh/compare/v0.6.0...v0.6.1) (2026-07-22)
 
 
