@@ -29,6 +29,16 @@ inputs:
   github-token:
     description: Token used for issue, Project discovery, schema bootstrap, and optional mutations.
     required: false
+outputs:
+  status:
+    description: success when reconciliation completed without diagnostics; error otherwise.
+    value: ${{ steps.run.outputs.status }}
+  applied:
+    description: Number of mutations applied by this invocation.
+    value: ${{ steps.run.outputs.applied }}
+  remaining:
+    description: Number of mutations still required after this invocation.
+    value: ${{ steps.run.outputs.remaining }}
 runs:
   using: composite
   steps:
@@ -41,6 +51,7 @@ runs:
       working-directory: ${{ github.action_path }}
       run: npm install
     - name: Run Yukh
+      id: run
       shell: bash
       working-directory: ${{ github.workspace }}
       env:

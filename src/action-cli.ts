@@ -17,6 +17,17 @@ function parseProjectNumber(value: string | number | undefined): number {
   return typeof value === "number" ? value : Number.parseInt(value ?? "", 10);
 }
 
+async function writeActionOutputs(outcome: { ok: boolean; applied: number; remaining: number | readonly unknown[] }): Promise<void> {
+  if (!process.env.GITHUB_OUTPUT) return;
+  const remaining = Array.isArray(outcome.remaining) ? outcome.remaining.length : outcome.remaining;
+  await appendFile(process.env.GITHUB_OUTPUT, [
+    `status=${outcome.ok ? "success" : "error"}`,
+    `applied=${outcome.applied}`,
+    `remaining=${remaining}`,
+    "",
+  ].join("\n"), "utf8");
+}
+
 async function main(): Promise<void> {
   try {
     const event = await readEvent(process.env.GITHUB_EVENT_PATH);
@@ -57,6 +68,7 @@ async function main(): Promise<void> {
     if (process.env.GITHUB_STEP_SUMMARY) {
       await appendFile(process.env.GITHUB_STEP_SUMMARY, outcome.summary, "utf8");
     }
+    await writeActionOutputs(outcome);
     if (!outcome.ok) process.exitCode = 1;
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));

@@ -18,6 +18,11 @@ export interface NativeIssueField {
   options: NativeIssueFieldOption[];
 }
 
+export interface NativeIssueLabel {
+  id: string;
+  name: string;
+}
+
 export type NativeIssueMutationOperation =
   | { kind: "set_issue_type"; issueId: string; issueTypeId: string; desiredValue: string }
   | {
@@ -27,7 +32,9 @@ export type NativeIssueMutationOperation =
       fieldName: string;
       value: { singleSelectOptionId: string };
       desiredValue: string;
-    };
+    }
+  | { kind: "add_issue_label"; issueId: string; labelId: string; labelName: string }
+  | { kind: "remove_issue_label"; issueId: string; labelId: string; labelName: string };
 
 export type NativeIssuePlanResult =
   | { ok: true; operations: NativeIssueMutationOperation[] }
@@ -63,6 +70,10 @@ export function planNativeIssueMutations(input: {
   desiredIssueFields: Record<string, string | number>;
   observedIssueFields: Record<string, string | number>;
   issueFields: readonly NativeIssueField[];
+  desiredLabels?: readonly string[];
+  managedLabels?: readonly string[];
+  observedLabels?: readonly string[];
+  availableLabels?: readonly NativeIssueLabel[];
 }): NativeIssuePlanResult {
   const diagnostics: ContractDiagnostic[] = [];
   const operations: NativeIssueMutationOperation[] = [];
@@ -127,6 +138,38 @@ export function planNativeIssueMutations(input: {
     });
   }
 
+  const desiredLabels = new Set(input.desiredLabels ?? []);
+  const managedLabels = new Set(input.managedLabels ?? []);
+  const observedLabels = new Set(input.observedLabels ?? []);
+  const availableLabels = input.availableLabels ?? [];
+  for (const labelName of [...desiredLabels].sort()) {
+    if (!managedLabels.has(labelName)) {
+      diagnostics.push(diagnostic("unmanaged_desired_label", `Desired label '${labelName}' is not declared in the managed label catalog`, `native.labels.${labelName}`));
+      continue;
+    }
+    if (observedLabels.has(labelName)) continue;
+    const label = exactlyOne(
+      availableLabels.filter(({ name }) => name === labelName),
+      `native.labels.${labelName}`,
+      "issue_label_not_found",
+      "ambiguous_issue_label",
+      `Issue label '${labelName}'`,
+    );
+    if (!label.ok) diagnostics.push(label.diagnostic);
+    else operations.push({ kind: "add_issue_label", issueId: input.issueId, labelId: label.value.id, labelName });
+  }
+  for (const labelName of [...observedLabels].filter((name) => managedLabels.has(name) && !desiredLabels.has(name)).sort()) {
+    const label = exactlyOne(
+      availableLabels.filter(({ name }) => name === labelName),
+      `native.labels.${labelName}`,
+      "issue_label_not_found",
+      "ambiguous_issue_label",
+      `Issue label '${labelName}'`,
+    );
+    if (!label.ok) diagnostics.push(label.diagnostic);
+    else operations.push({ kind: "remove_issue_label", issueId: input.issueId, labelId: label.value.id, labelName });
+  }
+
   if (diagnostics.length > 0) {
     return { ok: false, diagnostics: diagnostics.sort((a, b) => a.path.localeCompare(b.path) || a.code.localeCompare(b.code)) };
   }
@@ -141,6 +184,10 @@ interface SetIssueFieldValueResponse {
   setIssueFieldValue?: { issue?: { id?: string | null } | null } | null;
 }
 
+interface UpdateLabelsResponse {
+  labelable?: { id?: string | null } | null;
+}
+
 const UPDATE_ISSUE_TYPE = `
 mutation SetIssueType($input: UpdateIssueInput!) {
   updateIssue(input: $input) { issue { id } }
@@ -149,6 +196,20 @@ mutation SetIssueType($input: UpdateIssueInput!) {
 const SET_ISSUE_FIELD = `
 mutation SetIssueField($input: SetIssueFieldValueInput!) {
   setIssueFieldValue(input: $input) { issue { id } }
+}`;
+
+const ADD_ISSUE_LABEL = `
+mutation AddIssueLabel($labelableId: ID!, $labelIds: [ID!]!) {
+  addLabelsToLabelable(input: { labelableId: $labelableId, labelIds: $labelIds }) {
+    labelable { ... on Issue { id } }
+  }
+}`;
+
+const REMOVE_ISSUE_LABEL = `
+mutation RemoveIssueLabel($labelableId: ID!, $labelIds: [ID!]!) {
+  removeLabelsFromLabelable(input: { labelableId: $labelableId, labelIds: $labelIds }) {
+    labelable { ... on Issue { id } }
+  }
 }`;
 
 export class SafeNativeIssueMutationAdapter {
@@ -168,7 +229,7 @@ export class SafeNativeIssueMutationAdapter {
             input: { id: operation.issueId, issueTypeId: operation.issueTypeId },
           });
           if (response.updateIssue?.issue?.id !== operation.issueId) throw new Error("GitHub did not confirm the issue type update");
-        } else {
+        } else if (operation.kind === "set_issue_field") {
           const response = await this.transport.execute<SetIssueFieldValueResponse>(SET_ISSUE_FIELD, {
             input: {
               issueId: operation.issueId,
@@ -176,11 +237,24 @@ export class SafeNativeIssueMutationAdapter {
             },
           });
           if (response.setIssueFieldValue?.issue?.id !== operation.issueId) throw new Error(`GitHub did not confirm the update of '${operation.fieldName}'`);
+        } else {
+          const add = operation.kind === "add_issue_label";
+          const response = await this.transport.execute<{ addLabelsToLabelable?: UpdateLabelsResponse; removeLabelsFromLabelable?: UpdateLabelsResponse }>(add ? ADD_ISSUE_LABEL : REMOVE_ISSUE_LABEL, {
+            labelableId: operation.issueId,
+            labelIds: [operation.labelId],
+          });
+          const confirmed = add ? response.addLabelsToLabelable?.labelable?.id : response.removeLabelsFromLabelable?.labelable?.id;
+          if (confirmed !== operation.issueId) throw new Error(`GitHub did not confirm the ${add ? "addition" : "removal"} of label '${operation.labelName}'`);
         }
         applied += 1;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        diagnostics.push(diagnostic("native_issue_mutation_failed", `GitHub issue mutation failed: ${message}`, operation.kind === "set_issue_type" ? "native.issueType" : `native.issueFields.${operation.fieldName}`));
+        const path = operation.kind === "set_issue_type"
+          ? "native.issueType"
+          : operation.kind === "set_issue_field"
+            ? `native.issueFields.${operation.fieldName}`
+            : `native.labels.${operation.labelName}`;
+        diagnostics.push(diagnostic("native_issue_mutation_failed", `GitHub issue mutation failed: ${message}`, path));
         break;
       }
     }

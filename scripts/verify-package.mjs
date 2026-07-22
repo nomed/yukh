@@ -23,6 +23,8 @@ const action = await readFile("action.yml", "utf8");
 if (!action.includes("src/action-cli.ts")) throw new Error("action.yml does not invoke the packaged runtime");
 if (!action.includes("github.action_path")) throw new Error("action.yml must resolve runtime files from github.action_path");
 if (!action.includes("operation:")) throw new Error("action.yml must expose the operation input");
+if (!action.includes("steps.run.outputs.applied")) throw new Error("action.yml must expose the applied mutation count");
+if (!action.includes("steps.run.outputs.remaining")) throw new Error("action.yml must expose the remaining mutation count");
 if (action.includes("nomed/yukh@main")) throw new Error("action package must not depend on the moving main branch");
 
 const selfDryRun = await readFile(".github/workflows/yukh-self-dry-run.yml", "utf8");
