@@ -44,9 +44,9 @@ interface IssueResponse {
     number?: number;
     body?: string | null;
     issueType?: { id?: string; name?: string } | null;
-    fieldValues?: { nodes?: Array<{
+    issueFieldValues?: { nodes?: Array<{
       __typename?: string;
-      name?: string;
+      value?: string;
       field?: { id?: string; name?: string } | null;
     } | null> };
   } | null } | null;
@@ -68,11 +68,11 @@ query ResolveIssue($owner: String!, $repository: String!, $number: Int!) {
     issue(number: $number) {
       id number body
       issueType { id name }
-      fieldValues(first: 100) {
+      issueFieldValues(first: 100) {
         nodes {
           __typename
           ... on IssueFieldSingleSelectValue {
-            name
+            value
             field { id name }
           }
         }
@@ -84,7 +84,7 @@ query ResolveIssue($owner: String!, $repository: String!, $number: Int!) {
     issueFields(first: 100) {
       nodes {
         __typename
-        ... on IssueField { id name dataType }
+        ... on IssueFieldCommon { id name dataType }
         ... on IssueFieldSingleSelect { id name dataType options { id name } }
       }
     }
@@ -190,8 +190,8 @@ export async function runConnectedActionRuntime(
     const node = response.repository?.issue;
     if (!node?.id) return errorOutcome(mode, [diagnostic("issue_not_found", `issue #${environment.issueNumber} was not found`, "issue")]);
     const observedIssueFields: Record<string, string | number> = {};
-    for (const value of node.fieldValues?.nodes ?? []) {
-      if (value?.field?.name && typeof value.name === "string") observedIssueFields[value.field.name] = value.name;
+    for (const value of node.issueFieldValues?.nodes ?? []) {
+      if (value?.field?.name && typeof value.value === "string") observedIssueFields[value.field.name] = value.value;
     }
     const issueTypes = (response.organization?.issueTypes?.nodes ?? [])
       .filter((value): value is { id: string; name: string } => Boolean(value?.id && value?.name))

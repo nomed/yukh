@@ -65,10 +65,10 @@ function issueResponse(aligned = false) {
         number: 27,
         body: issueBody,
         issueType: aligned ? { id: "TYPE_FEATURE", name: "Feature" } : { id: "TYPE_TASK", name: "Task" },
-        fieldValues: {
+        issueFieldValues: {
           nodes: aligned ? [{
             __typename: "IssueFieldSingleSelectValue",
-            name: "P1",
+            value: "P1",
             field: { id: "ISSUE_FIELD_PRIORITY", name: "Priority" },
           }] : [],
         },
@@ -178,6 +178,12 @@ describe("connected runtime", () => {
     expect(result).toMatchObject({ ok: true, mode: "dry-run", applied: 0, remaining: 5, writes: 0 });
     expect(transport.calls.filter(({ query }) => query.includes("mutation"))).toHaveLength(0);
     expect(result.summary).toContain("**Status:** dry-run");
+    const issueQuery = transport.calls.find(({ query }) => query.includes("ResolveIssue"))?.query;
+    expect(issueQuery).toContain("issueFieldValues(first: 100)");
+    expect(issueQuery).toContain("... on IssueFieldCommon");
+    expect(issueQuery).toContain("value");
+    expect(issueQuery).not.toContain("fieldValues(first: 100)");
+    expect(issueQuery).not.toContain("... on IssueField {");
   });
 
   it("applies a missing item and all drifted fields", async () => {
