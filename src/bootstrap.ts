@@ -4,7 +4,7 @@ import type { GraphqlTransport } from "./project.js";
 import { loadProjectPolicy, type ProjectPolicy } from "./policy.js";
 
 export type BootstrapMode = "dry-run" | "apply";
-export type BootstrapFieldType = "SINGLE_SELECT" | "NUMBER";
+export type BootstrapFieldType = "SINGLE_SELECT" | "NUMBER" | "DATE";
 export type BootstrapFieldMutability = "custom" | "status" | "derived" | "ambiguous";
 export interface BootstrapOption { id?: string; name: string; color: string; description: string; }
 export interface BootstrapFieldSpec { name: string; dataType: BootstrapFieldType; options: BootstrapOption[]; management?: "custom" | "status"; }
@@ -73,9 +73,10 @@ export function desiredProjectSchema(policy: ProjectPolicy): { fields: Bootstrap
     if (!isYukhManagedField(field) || !isProjectFieldTarget(field) || logicalName === "status" || logicalName === "iteration") continue;
     let spec: BootstrapFieldSpec;
     if (rule.type === "number") spec = { name: rule.projectField, dataType: "NUMBER", options: [], management: "custom" };
+    else if (rule.type === "date") spec = { name: rule.projectField, dataType: "DATE", options: [], management: "custom" };
     else if (Object.keys(rule.values).length > 0) spec = selectSpec(rule.projectField, Object.values(rule.values).sort((a, b) => a.localeCompare(b)));
     else {
-      diagnostics.push(diagnostic("unsupported_bootstrap_field", `Policy field '${logicalName}' maps to '${rule.projectField}' without enum values or numeric type; Yukh cannot infer a safe Project field type`, `fields.${logicalName}`));
+      diagnostics.push(diagnostic("unsupported_bootstrap_field", `Policy field '${logicalName}' maps to '${rule.projectField}' without enum values, numeric type, or date type; Yukh cannot infer a safe Project field type`, `fields.${logicalName}`));
       continue;
     }
     const key = spec.name.toLowerCase();
