@@ -25,6 +25,7 @@ const policy: ProjectPolicy = {
 const desired: DesiredProjectState = {
   project: { owner: "nomed", repository: "uc-rust", name: "UC Rust" },
   fields: { Component: "Edge", Estimate: 2, Priority: "P0" },
+  native: { issueFields: {} },
   iteration: { mode: "auto" },
   execution: "human",
   relationships: { children: [], dependsOn: [60], blocks: [] },
