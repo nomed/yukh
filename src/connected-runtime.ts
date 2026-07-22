@@ -138,7 +138,7 @@ function errorOutcome(mode: RuntimeMode, diagnostics: ContractDiagnostic[]): Con
   };
 }
 
-function applySummary(repository: string, issueNumber: number, mode: RuntimeMode, planned: number, apply?: CompleteReconciliationApplyResult): string {
+function applySummary(repository: string, issueNumber: number, mode: RuntimeMode, planned: number, apply?: Pick<CompleteReconciliationApplyResult, "ok" | "applied" | "retryable" | "diagnostics"> & { remaining: readonly unknown[] }): string {
   const lines = [
     "# Yukh connected reconciliation",
     "",
@@ -246,8 +246,8 @@ export async function runConnectedActionRuntime(
   if (!planned.ok) return errorOutcome(mode, planned.diagnostics);
   const nativePlanned = planNativeIssueMutations({
     issueId: issue.id,
-    desiredIssueType: desiredResult.value.native.issueType,
-    observedIssueType: issue.observedIssueType,
+    ...(desiredResult.value.native.issueType !== undefined ? { desiredIssueType: desiredResult.value.native.issueType } : {}),
+    ...(issue.observedIssueType !== undefined ? { observedIssueType: issue.observedIssueType } : {}),
     issueTypes: issue.issueTypes,
     desiredIssueFields: desiredResult.value.native.issueFields,
     observedIssueFields: issue.observedIssueFields,
