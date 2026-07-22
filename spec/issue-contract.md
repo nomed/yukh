@@ -16,6 +16,8 @@ size: S
 estimate: 2
 iteration: auto
 execution: human
+extensions:
+  component: edge
 -->
 ```
 
@@ -25,7 +27,8 @@ execution: human
 - The closing marker must be exactly `-->`.
 - Only one Yukh block is allowed.
 - YAML keys are case-sensitive.
-- Unknown keys are rejected unless prefixed with `x-`.
+- Unknown top-level keys are rejected unless prefixed with `x-`.
+- Repository-governed dimensions use the `extensions:` mapping and must be declared by the effective repository policy.
 - Issue references are repository-local numbers in v1.
 - The block is declarative input; Project values are reconciled from it.
 
@@ -52,6 +55,32 @@ execution: human
 | `iteration` | Iteration code or `auto`. |
 | `execution` | `agent`, `human` or `hybrid`. |
 | `owner` | Accountable GitHub login when explicitly known. |
+| `extensions` | Mapping of repository-specific governed dimensions declared in `.yukh/project.yaml`. |
+
+## Policy-declared extensions
+
+Repositories may add governed Project dimensions without changing Yukh source. The policy declares the logical name, Project field, ownership, requiredness and allowed values:
+
+```yaml
+fields:
+  component:
+    project_field: Component
+    ownership: extension
+    required: true
+    values:
+      edge: Edge
+      hub: Hub
+      shared: Shared
+```
+
+The issue contract supplies the normalized value under a stable namespace:
+
+```yaml
+extensions:
+  component: edge
+```
+
+Extension names must be normalized identifiers and must not collide with core, relationship or opaque `x-*` keys. Undeclared extensions, missing required extensions and values outside the policy allowlist fail closed. Bootstrap and issue reconciliation project declared extensions like other Yukh-managed fields; a repository that declares no extensions retains existing schema-v1 behavior.
 
 ## Authority
 
