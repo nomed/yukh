@@ -1,6 +1,7 @@
 import type { ContractDiagnostic } from "./contract.js";
 import { parseIssueContract } from "./contract.js";
 import { SafeProjectMutationAdapter } from "./mutation.js";
+import { applyNativeGovernance, GitHubRestNativeGovernanceAdapter, planNativeGovernance, type NativeGovernanceAdapter, type NativeGovernanceOperation } from "./native-governance.js";
 import { planNativeIssueMutations, SafeNativeIssueMutationAdapter, type NativeIssueField, type NativeIssueType } from "./native-issue.js";
 import { buildDesiredProjectState, loadProjectPolicy } from "./policy.js";
 import { ReadOnlyProjectAdapter, type GraphqlTransport } from "./project.js";
@@ -177,6 +178,7 @@ function applySummary(repository: string, issueNumber: number, mode: RuntimeMode
 export async function runConnectedActionRuntime(
   input: ConnectedRuntimeInput,
   transportOverride?: GraphqlTransport,
+  governanceOverride?: NativeGovernanceAdapter,
 ): Promise<ConnectedRuntimeOutcome> {
   const mode: RuntimeMode = input.mode === "apply" ? "apply" : "dry-run";
   const token = input.token?.trim();
@@ -258,6 +260,32 @@ export async function runConnectedActionRuntime(
   const desiredResult = buildDesiredProjectState(contractResult.contract, policyResult.value);
   if (!desiredResult.ok) return errorOutcome(mode, desiredResult.diagnostics);
 
+  const governanceDesired = {
+    ...(desiredResult.value.milestone !== undefined ? { milestone: desiredResult.value.milestone } : {}),
+    ...(desiredResult.value.relationships.parent !== undefined ? { parent: desiredResult.value.relationships.parent } : {}),
+    dependsOn: desiredResult.value.relationships.dependsOn,
+  };
+  const governanceEnabled = governanceDesired.milestone !== undefined || governanceDesired.parent !== undefined || governanceDesired.dependsOn.length > 0;
+  const governanceAdapter = governanceOverride ?? (token ? new GitHubRestNativeGovernanceAdapter(token) : undefined);
+  let governanceOperations: NativeGovernanceOperation[] = [];
+  if (governanceEnabled) {
+    if (!governanceAdapter) return errorOutcome(mode, [diagnostic("native_governance_transport_missing", "Native milestone and relationship reconciliation requires a REST transport", "native")]);
+    try {
+      const governanceDiscovered = await governanceAdapter.discover({
+        repository: environment.repository,
+        issueNumber: environment.issueNumber,
+        desired: governanceDesired,
+      });
+      const governancePlanned = planNativeGovernance(governanceDesired, governanceDiscovered);
+      if (!governancePlanned.ok) return errorOutcome(mode, governancePlanned.diagnostics);
+      governanceOperations = governancePlanned.plan.operations;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const permission = /403|resource not accessible|forbidden|permission/i.test(message);
+      return errorOutcome(mode, [diagnostic(permission ? "native_governance_permission_denied" : "native_governance_api_error", message, "native")]);
+    }
+  }
+
   const discovered = await new ReadOnlyProjectAdapter(transport).discover({
     owner: policyResult.value.project.owner,
     projectNumber: environment.projectNumber,
@@ -288,7 +316,7 @@ export async function runConnectedActionRuntime(
     availableLabels: issue.availableLabels,
   });
   if (!nativePlanned.ok) return errorOutcome(mode, nativePlanned.diagnostics);
-  const totalPlanned = planned.plan.operations.length + nativePlanned.operations.length;
+  const totalPlanned = planned.plan.operations.length + nativePlanned.operations.length + governanceOperations.length;
 
   const report = buildReadOnlyReport({
     issueBody: issue.body,
@@ -319,27 +347,46 @@ export async function runConnectedActionRuntime(
       ok: false,
       mode,
       human: `Applied ${projectApplied.applied}; ${projectApplied.remaining.length + nativePlanned.operations.length} operation(s) remain.`,
-      json: `${JSON.stringify({ status: "error", mode, applied: projectApplied.applied, remaining: [...projectApplied.remaining, ...nativePlanned.operations], retryable: projectApplied.retryable, diagnostics: projectApplied.diagnostics }, null, 2)}\n`,
+      json: `${JSON.stringify({ status: "error", mode, applied: projectApplied.applied, remaining: [...projectApplied.remaining, ...nativePlanned.operations, ...governanceOperations], retryable: projectApplied.retryable, diagnostics: projectApplied.diagnostics }, null, 2)}\n`,
       summary: applySummary(environment.repository, environment.issueNumber, mode, totalPlanned, {
         ...projectApplied,
-        remaining: [...projectApplied.remaining, ...nativePlanned.operations],
+        remaining: [...projectApplied.remaining, ...nativePlanned.operations, ...governanceOperations],
       }),
       diagnostics: projectApplied.diagnostics,
       applied: projectApplied.applied,
-      remaining: projectApplied.remaining.length + nativePlanned.operations.length,
+      remaining: projectApplied.remaining.length + nativePlanned.operations.length + governanceOperations.length,
       retryable: projectApplied.retryable,
       writes: projectApplied.applied,
     };
   }
   const nativeApplied = await new SafeNativeIssueMutationAdapter(transport).apply(nativePlanned.operations);
-  const appliedCount = projectApplied.applied + nativeApplied.applied;
-  const remainingCount = nativePlanned.operations.length - nativeApplied.applied;
+  const nativeAppliedCount = projectApplied.applied + nativeApplied.applied;
+  if (!nativeApplied.ok) {
+    const remaining = [...nativePlanned.operations.slice(nativeApplied.applied), ...governanceOperations];
+    return {
+      ok: false,
+      mode,
+      human: `Applied ${nativeAppliedCount}; ${remaining.length} operation(s) remain.`,
+      json: `${JSON.stringify({ status: "error", mode, applied: nativeAppliedCount, remaining, retryable: true, diagnostics: nativeApplied.diagnostics }, null, 2)}\n`,
+      summary: applySummary(environment.repository, environment.issueNumber, mode, totalPlanned, { ok: false, applied: nativeAppliedCount, remaining, retryable: true, diagnostics: nativeApplied.diagnostics }),
+      diagnostics: nativeApplied.diagnostics,
+      applied: nativeAppliedCount,
+      remaining: remaining.length,
+      retryable: true,
+      writes: nativeAppliedCount,
+    };
+  }
+  const governanceApplied = governanceAdapter
+    ? await applyNativeGovernance({ repository: environment.repository, issueNumber: environment.issueNumber, operations: governanceOperations, adapter: governanceAdapter })
+    : { ok: true, applied: 0, remaining: [], diagnostics: [] };
+  const appliedCount = nativeAppliedCount + governanceApplied.applied;
+  const remainingCount = governanceApplied.remaining.length;
   const combinedApply = {
-    ok: nativeApplied.ok,
+    ok: governanceApplied.ok,
     applied: appliedCount,
-    remaining: nativePlanned.operations.slice(nativeApplied.applied),
-    diagnostics: nativeApplied.diagnostics,
-    retryable: !nativeApplied.ok,
+    remaining: governanceApplied.remaining,
+    diagnostics: governanceApplied.diagnostics,
+    retryable: !governanceApplied.ok,
   };
   return {
     ok: combinedApply.ok,
