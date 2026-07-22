@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/nomed/yukh/compare/v0.6.0...v0.6.1) (2026-07-22)
+
+
+### Bug Fixes
+
+* use native issue field GraphQL schema ([#74](https://github.com/nomed/yukh/issues/74)) ([d2ce6e1](https://github.com/nomed/yukh/commit/d2ce6e14b18e55e390a12e3e7b082a3098163b53))
+
 ## [0.6.0](https://github.com/nomed/yukh/compare/v0.5.0...v0.6.0) (2026-07-22)
 
 
