@@ -23,7 +23,7 @@ on:
         default: false
     secrets:
       yukh_token:
-        description: Optional GitHub App or PAT token with target Project access.
+        description: Optional GitHub App or PAT token with target Project access and Issues: write for native milestone and relationship apply.
         required: false
   workflow_dispatch:
     inputs:

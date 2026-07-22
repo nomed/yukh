@@ -17,6 +17,7 @@ export interface NativeGovernanceDiscovery {
   issueDatabaseId: number;
   observed: NativeGovernanceState;
   milestoneNumbers: Record<string, number>;
+  parentDatabaseIds: Record<number, number>;
   dependencyDatabaseIds: Record<number, number>;
 }
 
@@ -67,7 +68,9 @@ export function planNativeGovernance(
       operations.push({ kind: "remove_parent", parentNumber: discovered.observed.parent, issueDatabaseId: discovered.issueDatabaseId });
     }
     if (desired.parent !== undefined) {
-      operations.push({ kind: "set_parent", parentNumber: desired.parent, issueDatabaseId: discovered.issueDatabaseId });
+      if (discovered.parentDatabaseIds[desired.parent] === undefined) {
+        diagnostics.push(diagnostic("native_parent_not_found", `Parent issue #${desired.parent} was not found`, "relationships.parent"));
+      } else operations.push({ kind: "set_parent", parentNumber: desired.parent, issueDatabaseId: discovered.issueDatabaseId });
     }
   }
 
@@ -128,14 +131,30 @@ export class GitHubRestNativeGovernanceAdapter implements NativeGovernanceAdapte
     return response.json() as Promise<RestIssue>;
   }
 
+  private async maybeIssue(repository: string, issueNumber: number): Promise<RestIssue | undefined> {
+    const response = await this.request(`/repos/${repository}/issues/${issueNumber}`);
+    if (response.status === 404) return undefined;
+    if (!response.ok) throw new Error(`GitHub REST issue lookup HTTP ${response.status}`);
+    return response.json() as Promise<RestIssue>;
+  }
+
   async discover(input: { repository: string; issueNumber: number; desired: NativeGovernanceState }): Promise<NativeGovernanceDiscovery> {
     const current = await this.issue(input.repository, input.issueNumber);
     if (!current.id) throw new Error(`GitHub REST issue #${input.issueNumber} did not include id`);
 
     const parentResponse = await this.request(`/repos/${input.repository}/issues/${input.issueNumber}/parent`);
     let parent: number | undefined;
-    if (parentResponse.ok) parent = (await parentResponse.json() as RestIssue).number;
+    const parentDatabaseIds: Record<number, number> = {};
+    if (parentResponse.ok) {
+      const parentIssue = await parentResponse.json() as RestIssue;
+      parent = parentIssue.number;
+      if (parentIssue.number && parentIssue.id) parentDatabaseIds[parentIssue.number] = parentIssue.id;
+    }
     else if (parentResponse.status !== 404) throw new Error(`GitHub REST parent lookup HTTP ${parentResponse.status}`);
+    if (input.desired.parent !== undefined && parentDatabaseIds[input.desired.parent] === undefined) {
+      const desiredParent = await this.maybeIssue(input.repository, input.desired.parent);
+      if (desiredParent?.number && desiredParent.id) parentDatabaseIds[desiredParent.number] = desiredParent.id;
+    }
 
     const dependenciesResponse = await this.request(`/repos/${input.repository}/issues/${input.issueNumber}/dependencies/blocked_by?per_page=100`);
     if (!dependenciesResponse.ok) throw new Error(`GitHub REST dependency lookup HTTP ${dependenciesResponse.status}`);
@@ -144,8 +163,8 @@ export class GitHubRestNativeGovernanceAdapter implements NativeGovernanceAdapte
     for (const dependency of dependencyIssues) if (dependency.number && dependency.id) dependencyDatabaseIds[dependency.number] = dependency.id;
     for (const number of stable(input.desired.dependsOn)) {
       if (dependencyDatabaseIds[number] !== undefined) continue;
-      const dependency = await this.issue(input.repository, number);
-      if (dependency.id) dependencyDatabaseIds[number] = dependency.id;
+      const dependency = await this.maybeIssue(input.repository, number);
+      if (dependency?.id) dependencyDatabaseIds[number] = dependency.id;
     }
 
     const milestoneNumbers: Record<string, number> = {};
@@ -164,6 +183,7 @@ export class GitHubRestNativeGovernanceAdapter implements NativeGovernanceAdapte
         dependsOn: stable(dependencyIssues.flatMap((value) => value.number ? [value.number] : [])),
       },
       milestoneNumbers,
+      parentDatabaseIds,
       dependencyDatabaseIds,
     };
   }
