@@ -41,6 +41,10 @@ export function buildEffectiveProjectSchema(policy: ProjectPolicy): EffectivePro
   return { fields };
 }
 
+export function isProjectFieldTarget(field: EffectiveProjectField): boolean {
+  return (field.rule.target ?? "project_field") === "project_field";
+}
+
 export function isYukhManagedField(field: EffectiveProjectField): boolean {
   return field.ownership === "core" || field.ownership === "extension";
 }

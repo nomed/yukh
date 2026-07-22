@@ -1,6 +1,7 @@
 import type { ContractDiagnostic } from "./contract.js";
 import { parseIssueContract } from "./contract.js";
 import { SafeProjectMutationAdapter } from "./mutation.js";
+import { planNativeIssueMutations, SafeNativeIssueMutationAdapter, type NativeIssueField, type NativeIssueType } from "./native-issue.js";
 import { buildDesiredProjectState, loadProjectPolicy } from "./policy.js";
 import { ReadOnlyProjectAdapter, type GraphqlTransport } from "./project.js";
 import { applyCompleteProjectReconciliation, planCompleteProjectReconciliation, type CompleteReconciliationApplyResult } from "./reconcile.js";
@@ -38,13 +39,55 @@ export class GitHubGraphqlTransport implements GraphqlTransport {
 }
 
 interface IssueResponse {
-  repository?: { issue?: { id?: string; number?: number; body?: string | null } | null } | null;
+  repository?: { issue?: {
+    id?: string;
+    number?: number;
+    body?: string | null;
+    issueType?: { id?: string; name?: string } | null;
+    fieldValues?: { nodes?: Array<{
+      __typename?: string;
+      name?: string;
+      field?: { id?: string; name?: string } | null;
+    } | null> };
+  } | null } | null;
+  organization?: {
+    issueTypes?: { nodes?: Array<{ id?: string; name?: string } | null> };
+    issueFields?: { nodes?: Array<{
+      __typename?: string;
+      id?: string;
+      name?: string;
+      dataType?: string;
+      options?: Array<{ id?: string; name?: string } | null>;
+    } | null> };
+  } | null;
 }
 
 const ISSUE_QUERY = `
 query ResolveIssue($owner: String!, $repository: String!, $number: Int!) {
   repository(owner: $owner, name: $repository) {
-    issue(number: $number) { id number body }
+    issue(number: $number) {
+      id number body
+      issueType { id name }
+      fieldValues(first: 100) {
+        nodes {
+          __typename
+          ... on IssueFieldSingleSelectValue {
+            name
+            field { id name }
+          }
+        }
+      }
+    }
+  }
+  organization(login: $owner) {
+    issueTypes(first: 100) { nodes { id name } }
+    issueFields(first: 100) {
+      nodes {
+        __typename
+        ... on IssueField { id name dataType }
+        ... on IssueFieldSingleSelect { id name dataType options { id name } }
+      }
+    }
   }
 }`;
 
@@ -95,7 +138,7 @@ function errorOutcome(mode: RuntimeMode, diagnostics: ContractDiagnostic[]): Con
   };
 }
 
-function applySummary(repository: string, issueNumber: number, mode: RuntimeMode, planned: number, apply?: CompleteReconciliationApplyResult): string {
+function applySummary(repository: string, issueNumber: number, mode: RuntimeMode, planned: number, apply?: Pick<CompleteReconciliationApplyResult, "ok" | "applied" | "retryable" | "diagnostics"> & { remaining: readonly unknown[] }): string {
   const lines = [
     "# Yukh connected reconciliation",
     "",
@@ -134,12 +177,44 @@ export async function runConnectedActionRuntime(
   if (!owner || !repositoryName) return errorOutcome(mode, [diagnostic("invalid_repository", "repository must use owner/name format", "repository")]);
   const transport = transportOverride ?? new GitHubGraphqlTransport(token!);
 
-  let issue: { id: string; body: string };
+  let issue: {
+    id: string;
+    body: string;
+    observedIssueType?: string;
+    observedIssueFields: Record<string, string | number>;
+    issueTypes: NativeIssueType[];
+    issueFields: NativeIssueField[];
+  };
   try {
     const response = await transport.execute<IssueResponse>(ISSUE_QUERY, { owner, repository: repositoryName, number: environment.issueNumber });
     const node = response.repository?.issue;
     if (!node?.id) return errorOutcome(mode, [diagnostic("issue_not_found", `issue #${environment.issueNumber} was not found`, "issue")]);
-    issue = { id: node.id, body: input.issueBody ?? node.body ?? "" };
+    const observedIssueFields: Record<string, string | number> = {};
+    for (const value of node.fieldValues?.nodes ?? []) {
+      if (value?.field?.name && typeof value.name === "string") observedIssueFields[value.field.name] = value.name;
+    }
+    const issueTypes = (response.organization?.issueTypes?.nodes ?? [])
+      .filter((value): value is { id: string; name: string } => Boolean(value?.id && value?.name))
+      .map(({ id, name }) => ({ id, name }));
+    const issueFields = (response.organization?.issueFields?.nodes ?? [])
+      .filter((value): value is NonNullable<typeof value> & { id: string; name: string; dataType: string } =>
+        Boolean(value?.id && value?.name && value?.dataType))
+      .map(({ id, name, dataType, options }) => ({
+        id,
+        name,
+        dataType,
+        options: (options ?? [])
+          .filter((value): value is { id: string; name: string } => Boolean(value?.id && value?.name))
+          .map(({ id: optionId, name: optionName }) => ({ id: optionId, name: optionName })),
+      }));
+    issue = {
+      id: node.id,
+      body: input.issueBody ?? node.body ?? "",
+      ...(node.issueType?.name ? { observedIssueType: node.issueType.name } : {}),
+      observedIssueFields,
+      issueTypes,
+      issueFields,
+    };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const permission = /resource not accessible|forbidden|permission/i.test(message);
@@ -169,6 +244,17 @@ export async function runConnectedActionRuntime(
     ...(input.now !== undefined ? { now: input.now } : {}),
   });
   if (!planned.ok) return errorOutcome(mode, planned.diagnostics);
+  const nativePlanned = planNativeIssueMutations({
+    issueId: issue.id,
+    ...(desiredResult.value.native.issueType !== undefined ? { desiredIssueType: desiredResult.value.native.issueType } : {}),
+    ...(issue.observedIssueType !== undefined ? { observedIssueType: issue.observedIssueType } : {}),
+    issueTypes: issue.issueTypes,
+    desiredIssueFields: desiredResult.value.native.issueFields,
+    observedIssueFields: issue.observedIssueFields,
+    issueFields: issue.issueFields,
+  });
+  if (!nativePlanned.ok) return errorOutcome(mode, nativePlanned.diagnostics);
+  const totalPlanned = planned.plan.operations.length + nativePlanned.operations.length;
 
   const report = buildReadOnlyReport({
     issueBody: issue.body,
@@ -184,26 +270,53 @@ export async function runConnectedActionRuntime(
       mode,
       human: renderHumanReport(report),
       json: serializeReport(report),
-      summary: applySummary(environment.repository, environment.issueNumber, mode, planned.plan.operations.length),
+      summary: applySummary(environment.repository, environment.issueNumber, mode, totalPlanned),
       diagnostics: [...report.diagnostics, ...planned.plan.warnings],
       applied: 0,
-      remaining: planned.plan.operations.length,
+      remaining: totalPlanned,
       retryable: false,
       writes: 0,
     };
   }
 
-  const applied = await applyCompleteProjectReconciliation(new SafeProjectMutationAdapter(transport), planned.plan);
+  const projectApplied = await applyCompleteProjectReconciliation(new SafeProjectMutationAdapter(transport), planned.plan);
+  if (!projectApplied.ok) {
+    return {
+      ok: false,
+      mode,
+      human: `Applied ${projectApplied.applied}; ${projectApplied.remaining.length + nativePlanned.operations.length} operation(s) remain.`,
+      json: `${JSON.stringify({ status: "error", mode, applied: projectApplied.applied, remaining: [...projectApplied.remaining, ...nativePlanned.operations], retryable: projectApplied.retryable, diagnostics: projectApplied.diagnostics }, null, 2)}\n`,
+      summary: applySummary(environment.repository, environment.issueNumber, mode, totalPlanned, {
+        ...projectApplied,
+        remaining: [...projectApplied.remaining, ...nativePlanned.operations],
+      }),
+      diagnostics: projectApplied.diagnostics,
+      applied: projectApplied.applied,
+      remaining: projectApplied.remaining.length + nativePlanned.operations.length,
+      retryable: projectApplied.retryable,
+      writes: projectApplied.applied,
+    };
+  }
+  const nativeApplied = await new SafeNativeIssueMutationAdapter(transport).apply(nativePlanned.operations);
+  const appliedCount = projectApplied.applied + nativeApplied.applied;
+  const remainingCount = nativePlanned.operations.length - nativeApplied.applied;
+  const combinedApply = {
+    ok: nativeApplied.ok,
+    applied: appliedCount,
+    remaining: nativePlanned.operations.slice(nativeApplied.applied),
+    diagnostics: nativeApplied.diagnostics,
+    retryable: !nativeApplied.ok,
+  };
   return {
-    ok: applied.ok,
+    ok: combinedApply.ok,
     mode,
-    human: applied.ok ? `Applied ${applied.applied} operation(s).` : `Applied ${applied.applied}; ${applied.remaining.length} operation(s) remain.`,
-    json: `${JSON.stringify({ status: applied.ok ? "success" : "error", mode, applied: applied.applied, remaining: applied.remaining, retryable: applied.retryable, diagnostics: applied.diagnostics }, null, 2)}\n`,
-    summary: applySummary(environment.repository, environment.issueNumber, mode, planned.plan.operations.length, applied),
-    diagnostics: applied.diagnostics,
-    applied: applied.applied,
-    remaining: applied.remaining.length,
-    retryable: applied.retryable,
-    writes: applied.applied,
+    human: combinedApply.ok ? `Applied ${appliedCount} operation(s).` : `Applied ${appliedCount}; ${remainingCount} operation(s) remain.`,
+    json: `${JSON.stringify({ status: combinedApply.ok ? "success" : "error", mode, applied: appliedCount, remaining: combinedApply.remaining, retryable: combinedApply.retryable, diagnostics: combinedApply.diagnostics }, null, 2)}\n`,
+    summary: applySummary(environment.repository, environment.issueNumber, mode, totalPlanned, combinedApply),
+    diagnostics: combinedApply.diagnostics,
+    applied: appliedCount,
+    remaining: remainingCount,
+    retryable: combinedApply.retryable,
+    writes: appliedCount,
   };
 }

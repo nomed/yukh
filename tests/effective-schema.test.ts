@@ -111,6 +111,15 @@ describe("effective Project schema", () => {
     });
   });
 
+  it("excludes issue-backed fields from custom Project bootstrap", () => {
+    const parsed = loadProjectPolicy(source
+      .replace("project_field: Work Type", "project_field: Type, target: issue_type")
+      .replace("project_field: Work Priority", "project_field: Priority, target: issue_field"));
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(desiredProjectSchema(parsed.value).fields.map(({ name }) => name)).not.toEqual(expect.arrayContaining(["Type", "Priority"]));
+  });
+
   it("rejects conflicting derived declarations", () => {
     const parsed = loadProjectPolicy(explicitSource.replace("ownership: core", "ownership: core, derived: true"));
     expect(parsed.ok).toBe(false);
