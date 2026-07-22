@@ -13,7 +13,8 @@ contract:
   schema: 1
 fields:
   kind:
-    project_field: Work Type
+    project_field: Type
+    target: issue_type
     required: true
     values: { gate: Gate, task: Task }
   area:
@@ -22,6 +23,7 @@ fields:
     values: { governance: Governance }
   priority:
     project_field: Priority
+    target: issue_field
     required: true
     values: { P0: P0, P1: P1 }
   size:
@@ -77,6 +79,13 @@ describe("loadProjectPolicy", () => {
     expect(result.value.scheduling.automaticIteration).toBe(true);
   });
 
+  it("parses explicit native targets and rejects unsafe combinations", () => {
+    const loaded = loadProjectPolicy(POLICY);
+    expect(loaded).toMatchObject({ ok: true, value: { fields: { kind: { target: "issue_type" }, priority: { target: "issue_field" }, component: { target: "project_field" } } } });
+    expect(loadProjectPolicy(POLICY.replace("target: issue_type", "target: other"))).toMatchObject({ ok: false, diagnostics: expect.arrayContaining([expect.objectContaining({ code: "unsupported_policy_value", path: "fields.kind.target" })]) });
+    expect(loadProjectPolicy(POLICY.replace("project_field: Priority\n    target: issue_field", "project_field: Priority\n    target: issue_type"))).toMatchObject({ ok: false, diagnostics: expect.arrayContaining([expect.objectContaining({ code: "incompatible_policy_target", path: "fields.priority.target" })]) });
+  });
+
   it("rejects malformed YAML", () => {
     const result = loadProjectPolicy("version: [");
     expect(result).toMatchObject({ ok: false, diagnostics: [{ code: "malformed_policy_yaml", path: "$" }] });
@@ -110,7 +119,8 @@ describe("buildDesiredProjectState", () => {
       ok: true,
       value: {
         project: { owner: "nomed", repository: "uc-rust", name: "uc-rust" },
-        fields: { Area: "Governance", Component: "Edge", Estimate: 2, Priority: "P0", Size: "S", "Work Type": "Gate" },
+        fields: { Area: "Governance", Component: "Edge", Estimate: 2, Size: "S" },
+        native: { issueType: "Gate", issueFields: { Priority: "P0" } },
         milestone: "M0",
         iteration: { mode: "auto" },
         execution: "human",
