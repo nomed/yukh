@@ -18,6 +18,7 @@ const KNOWN_KEYS = new Set([
   "iteration",
   "execution",
   "owner",
+  "extensions",
 ]);
 
 export type ExecutionMode = "agent" | "human" | "hybrid";
@@ -271,6 +272,28 @@ export function parseIssueContract(
       ? undefined
       : asNonEmptyString(values.owner, "owner", diagnostics);
 
+  const governedExtensions: Record<string, string> = {};
+  if (values.extensions !== undefined) {
+    if (values.extensions === null || typeof values.extensions !== "object" || Array.isArray(values.extensions)) {
+      diagnostics.push(diagnostic("invalid_type", "extensions must be a mapping", "extensions"));
+    } else {
+      const rawExtensions = values.extensions as Record<string, unknown>;
+      for (const key of Object.keys(rawExtensions).sort()) {
+        const path = `extensions.${key}`;
+        if (!/^[a-z][a-z0-9_]*$/.test(key)) {
+          diagnostics.push(diagnostic("invalid_extension_name", `${path} must use a normalized identifier`, path));
+          continue;
+        }
+        if (KNOWN_KEYS.has(key) || key.startsWith("x-")) {
+          diagnostics.push(diagnostic("reserved_extension_name", `${path} collides with a reserved contract key`, path));
+          continue;
+        }
+        const parsed = asNonEmptyString(rawExtensions[key], path, diagnostics);
+        if (parsed !== undefined) governedExtensions[key] = parsed;
+      }
+    }
+  }
+
   let execution: ExecutionMode | undefined;
   if (values.execution !== undefined) {
     if (
@@ -318,9 +341,10 @@ export function parseIssueContract(
     return { ok: false, diagnostics };
   }
 
-  const extensions = Object.fromEntries(
-    Object.entries(values).filter(([key]) => key.startsWith("x-")),
-  );
+  const extensions = Object.fromEntries([
+    ...Object.entries(governedExtensions),
+    ...Object.entries(values).filter(([key]) => key.startsWith("x-")),
+  ].sort(([a], [b]) => a.localeCompare(b)));
 
   return {
     ok: true,
