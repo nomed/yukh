@@ -10,6 +10,7 @@ const policy: ProjectPolicy = {
   contract: { marker: "yukh", schema: 1 },
   fields: {
     priority: { projectField: "Priority", required: true, type: "string", derived: false, values: { P0: "P0" } },
+    component: { projectField: "Component", required: true, type: "string", derived: false, ownership: "extension", values: { edge: "Edge", hub: "Hub", shared: "Shared" } },
     estimate: { projectField: "Estimate", required: false, type: "number", derived: false, values: {} },
     iteration: { projectField: "Iteration", required: false, type: "string", derived: false, values: {} },
     status: { projectField: "Status", required: false, type: "string", derived: true, values: {} },
@@ -23,7 +24,7 @@ const policy: ProjectPolicy = {
 
 const desired: DesiredProjectState = {
   project: { owner: "nomed", repository: "uc-rust", name: "UC Rust" },
-  fields: { Estimate: 2, Priority: "P0" },
+  fields: { Component: "Edge", Estimate: 2, Priority: "P0" },
   iteration: { mode: "auto" },
   execution: "human",
   relationships: { children: [], dependsOn: [60], blocks: [] },
@@ -33,6 +34,7 @@ function discovered(overrides: Partial<DiscoveredProjectState["issueItem"]> = {}
   return {
     project: { id: "PVT_1", number: 7, title: "UC Rust", owner: "nomed" },
     fields: [
+      { id: "F_COMPONENT", name: "Component", dataType: "SINGLE_SELECT", options: [{ id: "OC_EDGE", name: "Edge" }], iterations: [] },
       { id: "F_EST", name: "Estimate", dataType: "NUMBER", options: [], iterations: [] },
       {
         id: "F_ITER",
@@ -68,13 +70,13 @@ describe("complete Project reconciliation", () => {
     const result = planCompleteProjectReconciliation({ desired, policy, discovered: discovered(), issueContentId: "ISSUE_61", now: "2026-07-18" });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.plan.operations.map((operation) => operation.kind === "add_project_item" ? "add" : operation.fieldName)).toEqual(["add", "Estimate", "Iteration", "Priority", "Status"]);
-    expect(result.plan.operations[2]).toMatchObject({ value: { iterationId: "I2" }, desiredValue: "Iteration 2" });
-    expect(result.plan.operations[4]).toMatchObject({ desiredValue: "Blocked" });
+    expect(result.plan.operations.map((operation) => operation.kind === "add_project_item" ? "add" : operation.fieldName)).toEqual(["add", "Component", "Estimate", "Iteration", "Priority", "Status"]);
+    expect(result.plan.operations[3]).toMatchObject({ value: { iterationId: "I2" }, desiredValue: "Iteration 2" });
+    expect(result.plan.operations[5]).toMatchObject({ desiredValue: "Blocked" });
   });
 
   it("produces a no-op when all managed values match", () => {
-    const state = discovered({ present: true, id: "ITEM_61", values: { Estimate: 2, Iteration: "Iteration 2", Priority: "P0", Status: "Blocked" } });
+    const state = discovered({ present: true, id: "ITEM_61", values: { Component: "Edge", Estimate: 2, Iteration: "Iteration 2", Priority: "P0", Status: "Blocked" } });
     const result = planCompleteProjectReconciliation({ desired, policy, discovered: state, issueContentId: "ISSUE_61", now: "2026-07-18" });
     expect(result).toMatchObject({ ok: true, plan: { operations: [] } });
   });
@@ -105,10 +107,10 @@ describe("complete Project reconciliation", () => {
     if (!planned.ok) throw new Error("plan should succeed");
     const transport = new SequenceTransport([
       { addProjectV2ItemById: { item: { id: "ITEM_61" } } },
-      ...Array.from({ length: 4 }, () => ({ updateProjectV2ItemFieldValue: { projectV2Item: { id: "ITEM_61" } } })),
+      ...Array.from({ length: 5 }, () => ({ updateProjectV2ItemFieldValue: { projectV2Item: { id: "ITEM_61" } } })),
     ]);
     const result = await applyCompleteProjectReconciliation(new SafeProjectMutationAdapter(transport), planned.plan);
-    expect(result).toMatchObject({ ok: true, applied: 5, remaining: [], retryable: false, itemId: "ITEM_61" });
+    expect(result).toMatchObject({ ok: true, applied: 6, remaining: [], retryable: false, itemId: "ITEM_61" });
   });
 
   it("preserves completed and remaining operations after a partial failure", async () => {
@@ -122,7 +124,7 @@ describe("complete Project reconciliation", () => {
     const result = await applyCompleteProjectReconciliation(new SafeProjectMutationAdapter(transport), planned.plan);
     expect(result.ok).toBe(false);
     expect(result.applied).toBe(2);
-    expect(result.remaining).toHaveLength(3);
+    expect(result.remaining).toHaveLength(4);
     expect(result).toMatchObject({ retryable: true, diagnostics: [{ code: "project_mutation_failed" }], itemId: "ITEM_61" });
   });
 });
