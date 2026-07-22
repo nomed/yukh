@@ -27,7 +27,7 @@ export interface ProjectPolicy {
   version: 1;
   project: { owner: string; repository: string; name: string };
   contract: { marker: string; schema: 1 };
-  fields: Partial<Record<ContractField | "status", PolicyField>>;
+  fields: Partial<Record<string, PolicyField>>;
   milestones: Record<string, string>;
   defaults: { execution?: "agent" | "human" | "hybrid" };
   workflow: ProjectWorkflow;
@@ -115,10 +115,10 @@ export function loadProjectPolicy(source: string): PolicyResult<ProjectPolicy> {
 
   const fields: ProjectPolicy["fields"] = {};
   if (fieldsRaw) {
-    const supported = new Set([...CONTRACT_FIELDS, "status"]);
+    const supported = new Set<string>([...CONTRACT_FIELDS, "status"]);
     for (const key of Object.keys(fieldsRaw).sort()) {
-      if (!supported.has(key as ContractField | "status")) {
-        diagnostics.push(diag("unknown_policy_field", `unsupported policy field: ${key}`, `fields.${key}`));
+      if (!/^[a-z][a-z0-9_]*$/.test(key)) {
+        diagnostics.push(diag("invalid_policy_field", `fields.${key} must use a normalized identifier`, `fields.${key}`));
         continue;
       }
       const raw = objectAt(fieldsRaw[key], `fields.${key}`, diagnostics);
@@ -127,9 +127,10 @@ export function loadProjectPolicy(source: string): PolicyResult<ProjectPolicy> {
       const declaredType = raw.type === undefined ? "string" : raw.type;
       if (declaredType !== "string" && declaredType !== "number") diagnostics.push(diag("unsupported_policy_value", `fields.${key}.type must be string or number`, `fields.${key}.type`));
       const ownership = ownershipAt(raw.ownership, `fields.${key}.ownership`, diagnostics);
+      if (!supported.has(key) && ownership !== "extension") diagnostics.push(diag("unknown_policy_field", `fields.${key} must declare ownership: extension`, `fields.${key}`));
       const derived = booleanAt(raw.derived, `fields.${key}.derived`, diagnostics, false);
       if (derived && ownership && ownership !== "derived") diagnostics.push(diag("conflicting_field_ownership", `fields.${key} cannot combine derived: true with ownership: ${ownership}`, `fields.${key}`));
-      if (projectField) fields[key as ContractField | "status"] = {
+      if (projectField) fields[key] = {
         projectField,
         required: booleanAt(raw.required, `fields.${key}.required`, diagnostics, false),
         type: declaredType === "number" ? "number" : "string",
@@ -211,6 +212,31 @@ export function buildDesiredProjectState(contract: IssueContract, policy: Projec
     }
     const mapped = Object.keys(rule.values).length === 0 ? value : rule.values[value];
     if (mapped === undefined) diagnostics.push(diag("unsupported_contract_value", `${field} value '${value}' is not allowed by repository policy`, field));
+    else fields[rule.projectField] = mapped;
+  }
+
+  const declaredExtensions = new Set(
+    effective.fields
+      .filter(({ logicalName }) => !CONTRACT_FIELDS.includes(logicalName as ContractField) && logicalName !== "status")
+      .map(({ logicalName }) => logicalName),
+  );
+  for (const key of Object.keys(contract.extensions).filter((name) => !name.startsWith("x-")).sort()) {
+    if (!declaredExtensions.has(key)) diagnostics.push(diag("undeclared_extension", `extension '${key}' is not declared by repository policy`, `extensions.${key}`));
+  }
+  for (const extension of effective.fields.filter(({ logicalName }) => declaredExtensions.has(logicalName))) {
+    if (!isYukhManagedField(extension)) continue;
+    const { logicalName, rule } = extension;
+    const value = contract.extensions[logicalName];
+    if (value === undefined) {
+      if (rule.required) diagnostics.push(diag("missing_policy_required", `${logicalName} is required by repository policy`, `extensions.${logicalName}`));
+      continue;
+    }
+    if (typeof value !== "string" || rule.type !== "string") {
+      diagnostics.push(diag("policy_type_mismatch", `${logicalName} must be a string`, `extensions.${logicalName}`));
+      continue;
+    }
+    const mapped = Object.keys(rule.values).length === 0 ? value : rule.values[value];
+    if (mapped === undefined) diagnostics.push(diag("unsupported_contract_value", `${logicalName} value '${value}' is not allowed by repository policy`, `extensions.${logicalName}`));
     else fields[rule.projectField] = mapped;
   }
 
