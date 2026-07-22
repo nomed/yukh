@@ -70,7 +70,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: nomed/yukh
-          ref: v0.2.1
+          ref: e862f109bb038f8ec0699e42ac2da11c9ef42549 # v0.7.0
           path: .yukh-action
           persist-credentials: false
       - name: Reconcile issue
