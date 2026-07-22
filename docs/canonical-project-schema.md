@@ -54,6 +54,16 @@ fields:
 
 A policy-declared extension is managed only within the declared field and values. Yukh does not rename or delete unrelated Project fields or options.
 
+Any governed field may also declare a `labels` mapping keyed by the same contract values as `values`. Yukh then reconciles both the Project field and the repository label. It adds the desired declared label, removes stale labels only from that field's managed catalog, and preserves every unrelated label. Missing declared repository labels fail closed; repositories bootstrap their label catalog before issue reconciliation.
+
+```yaml
+fields:
+  priority:
+    project_field: Priority
+    values: { P0: P0, P1: P1 }
+    labels: { P0: priority:P0, P1: priority:P1 }
+```
+
 Date extensions use `type: date`, do not declare `values`, and carry a real ISO calendar date (`YYYY-MM-DD`) in the issue contract. Yukh bootstraps them as GitHub `DATE` fields and reconciles them without converting them to single-select options.
 
 ## Local custom initialization
