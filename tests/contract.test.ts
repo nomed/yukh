@@ -184,6 +184,46 @@ blocks: [42]
     }
   });
 
+  it("parses governed extensions deterministically and rejects malformed namespaces", () => {
+    const valid = parseIssueContract(`<!-- yukh
+schema: 1
+kind: task
+area: core
+priority: P1
+extensions:
+  component: edge
+-->`);
+    expect(valid).toMatchObject({ ok: true, contract: { extensions: { component: "edge" } } });
+
+    for (const source of ["extensions: edge", "extensions: [edge]"]) {
+      const result = parseIssueContract(`<!-- yukh
+schema: 1
+kind: task
+area: core
+priority: P1
+${source}
+-->`);
+      expect(result).toMatchObject({ ok: false, diagnostics: [{ code: "invalid_type", path: "extensions" }] });
+    }
+  });
+
+  it("rejects reserved and malformed extension names", () => {
+    const result = parseIssueContract(`<!-- yukh
+schema: 1
+kind: task
+area: core
+priority: P1
+extensions:
+  parent: edge
+  Bad-Name: hub
+-->`);
+    expect(result).toMatchObject({ ok: false });
+    if (!result.ok) expect(result.diagnostics.map(({ code }) => code).sort()).toEqual([
+      "invalid_extension_name",
+      "reserved_extension_name",
+    ]);
+  });
+
   it("rejects an unterminated contract", () => {
     const result = parseIssueContract("<!-- yukh\nschema: 1");
     expect(result.ok).toBe(false);
