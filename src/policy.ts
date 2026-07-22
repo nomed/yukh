@@ -212,7 +212,7 @@ export function buildDesiredProjectState(contract: IssueContract, policy: Projec
   const assign = (rule: PolicyField, value: string | number): void => {
     if (rule.target === "issue_type") issueType = String(value);
     else if (rule.target === "issue_field") issueFields[rule.projectField] = value;
-    else assign(rule, value);
+    else fields[rule.projectField] = value;
   };
   const effective = buildEffectiveProjectSchema(policy);
   for (const field of CONTRACT_FIELDS) {
