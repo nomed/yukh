@@ -6,6 +6,7 @@ export type FieldMutationValue =
   | { singleSelectOptionId: string }
   | { iterationId: string }
   | { number: number }
+  | { date: string }
   | { text: string };
 
 export interface MutationTarget {
@@ -155,6 +156,17 @@ export function resolveProjectFieldValue(
       return { ok: false, diagnostic: diagnostic("unsupported_field_value", `Project field '${field.name}' requires a finite number`, path) };
     }
     return { ok: true, value: { number: desiredValue } };
+  }
+
+  if (field.dataType === "DATE") {
+    if (typeof desiredValue !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(desiredValue)) {
+      return { ok: false, diagnostic: diagnostic("unsupported_field_value", `Project field '${field.name}' requires an ISO date in YYYY-MM-DD format`, path) };
+    }
+    const parsed = new Date(`${desiredValue}T00:00:00.000Z`);
+    if (Number.isNaN(parsed.valueOf()) || parsed.toISOString().slice(0, 10) !== desiredValue) {
+      return { ok: false, diagnostic: diagnostic("unsupported_field_value", `Project field '${field.name}' requires a real ISO date in YYYY-MM-DD format`, path) };
+    }
+    return { ok: true, value: { date: desiredValue } };
   }
 
   if (field.dataType === "TEXT") {
