@@ -5,8 +5,11 @@ import { buildEffectiveProjectSchema, isYukhManagedField, type ProjectFieldOwner
 const CONTRACT_FIELDS = ["kind", "area", "priority", "size", "estimate", "iteration"] as const;
 type ContractField = (typeof CONTRACT_FIELDS)[number];
 
+export type PolicyFieldTarget = "project_field" | "issue_type" | "issue_field";
+
 export interface PolicyField {
   projectField: string;
+  target: PolicyFieldTarget;
   required: boolean;
   type: "string" | "number";
   derived: boolean;
@@ -42,6 +45,7 @@ export interface ProjectPolicy {
 export interface DesiredProjectState {
   project: { owner: string; repository: string; name: string };
   fields: Record<string, string | number>;
+  native: { issueType?: string; issueFields: Record<string, string | number> };
   milestone?: string;
   iteration: { mode: "none" | "auto" | "explicit"; value?: string };
   execution: "agent" | "human" | "hybrid";
@@ -88,6 +92,12 @@ function stringMap(value: unknown, path: string, diagnostics: ContractDiagnostic
   }
   return result;
 }
+function targetAt(value: unknown, path: string, diagnostics: ContractDiagnostic[]): PolicyFieldTarget {
+  if (value === undefined || value === "project_field") return "project_field";
+  if (value === "issue_type" || value === "issue_field") return value;
+  diagnostics.push(diag("unsupported_policy_value", `${path} must be project_field, issue_type, or issue_field`, path));
+  return "project_field";
+}
 function ownershipAt(value: unknown, path: string, diagnostics: ContractDiagnostic[]): ProjectFieldOwnership | undefined {
   if (value === undefined) return undefined;
   if (value === "core" || value === "extension" || value === "external" || value === "derived") return value;
@@ -127,11 +137,17 @@ export function loadProjectPolicy(source: string): PolicyResult<ProjectPolicy> {
       const declaredType = raw.type === undefined ? "string" : raw.type;
       if (declaredType !== "string" && declaredType !== "number") diagnostics.push(diag("unsupported_policy_value", `fields.${key}.type must be string or number`, `fields.${key}.type`));
       const ownership = ownershipAt(raw.ownership, `fields.${key}.ownership`, diagnostics);
+      const target = targetAt(raw.target, `fields.${key}.target`, diagnostics);
+      if (target === "issue_type" && key !== "kind") diagnostics.push(diag("incompatible_policy_target", `fields.${key}.target issue_type is supported only for kind`, `fields.${key}.target`));
+      if (target !== "project_field" && raw.derived === true) diagnostics.push(diag("incompatible_policy_target", `fields.${key} cannot combine target: ${target} with derived: true`, `fields.${key}.target`));
+      if (target !== "project_field" && declaredType === "number") diagnostics.push(diag("incompatible_policy_target", `fields.${key}.target ${target} currently requires type: string`, `fields.${key}.target`));
+      if (target === "issue_type" && (raw.values === undefined || Object.keys(stringMap(raw.values, `fields.${key}.values`, [])).length === 0)) diagnostics.push(diag("incompatible_policy_target", `fields.${key}.target issue_type requires an explicit values catalog`, `fields.${key}.values`));
       if (!supported.has(key) && ownership !== "extension") diagnostics.push(diag("unknown_policy_field", `fields.${key} must declare ownership: extension`, `fields.${key}`));
       const derived = booleanAt(raw.derived, `fields.${key}.derived`, diagnostics, false);
       if (derived && ownership && ownership !== "derived") diagnostics.push(diag("conflicting_field_ownership", `fields.${key} cannot combine derived: true with ownership: ${ownership}`, `fields.${key}`));
       if (projectField) fields[key] = {
         projectField,
+        target,
         required: booleanAt(raw.required, `fields.${key}.required`, diagnostics, false),
         type: declaredType === "number" ? "number" : "string",
         derived,
@@ -191,6 +207,13 @@ function contractValue(contract: IssueContract, field: ContractField): string | 
 export function buildDesiredProjectState(contract: IssueContract, policy: ProjectPolicy): PolicyResult<DesiredProjectState> {
   const diagnostics: ContractDiagnostic[] = [];
   const fields: Record<string, string | number> = {};
+  let issueType: string | undefined;
+  const issueFields: Record<string, string | number> = {};
+  const assign = (rule: PolicyField, value: string | number): void => {
+    if (rule.target === "issue_type") issueType = String(value);
+    else if (rule.target === "issue_field") issueFields[rule.projectField] = value;
+    else assign(rule, value);
+  };
   const effective = buildEffectiveProjectSchema(policy);
   for (const field of CONTRACT_FIELDS) {
     const effectiveField = effective.fields.find(({ logicalName }) => logicalName === field);
@@ -212,7 +235,7 @@ export function buildDesiredProjectState(contract: IssueContract, policy: Projec
     }
     const mapped = Object.keys(rule.values).length === 0 ? value : rule.values[value];
     if (mapped === undefined) diagnostics.push(diag("unsupported_contract_value", `${field} value '${value}' is not allowed by repository policy`, field));
-    else fields[rule.projectField] = mapped;
+    else assign(rule, mapped);
   }
 
   const declaredExtensions = new Set(
@@ -261,6 +284,10 @@ export function buildDesiredProjectState(contract: IssueContract, policy: Projec
     value: {
       project: { ...policy.project },
       fields: Object.fromEntries(Object.entries(fields).sort(([a], [b]) => a.localeCompare(b))),
+      native: {
+        ...(issueType !== undefined ? { issueType } : {}),
+        issueFields: Object.fromEntries(Object.entries(issueFields).sort(([a], [b]) => a.localeCompare(b))),
+      },
       ...(milestone !== undefined ? { milestone } : {}),
       iteration,
       execution,
