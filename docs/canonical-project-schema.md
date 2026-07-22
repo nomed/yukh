@@ -54,6 +54,8 @@ fields:
 
 A policy-declared extension is managed only within the declared field and values. Yukh does not rename or delete unrelated Project fields or options.
 
+Date extensions use `type: date`, do not declare `values`, and carry a real ISO calendar date (`YYYY-MM-DD`) in the issue contract. Yukh bootstraps them as GitHub `DATE` fields and reconciles them without converting them to single-select options.
+
 ## Local custom initialization
 
 Unsupported Project field types or repository-specific automation remain explicit local workflow steps. Yukh never executes arbitrary repository scripts implicitly.

@@ -11,7 +11,7 @@ export interface PolicyField {
   projectField: string;
   target?: PolicyFieldTarget;
   required: boolean;
-  type: "string" | "number";
+  type: "string" | "number" | "date";
   derived: boolean;
   ownership?: ProjectFieldOwnership;
   values: Record<string, string>;
@@ -105,6 +105,12 @@ function ownershipAt(value: unknown, path: string, diagnostics: ContractDiagnost
   return undefined;
 }
 
+function isIsoDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(parsed.valueOf()) && parsed.toISOString().slice(0, 10) === value;
+}
+
 export function loadProjectPolicy(source: string): PolicyResult<ProjectPolicy> {
   const document = parseDocument(source, { prettyErrors: false, uniqueKeys: true });
   if (document.errors.length > 0) return { ok: false, diagnostics: document.errors.map((error) => diag("malformed_policy_yaml", error.message, "$")) };
@@ -135,12 +141,13 @@ export function loadProjectPolicy(source: string): PolicyResult<ProjectPolicy> {
       if (!raw) continue;
       const projectField = stringAt(raw.project_field, `fields.${key}.project_field`, diagnostics);
       const declaredType = raw.type === undefined ? "string" : raw.type;
-      if (declaredType !== "string" && declaredType !== "number") diagnostics.push(diag("unsupported_policy_value", `fields.${key}.type must be string or number`, `fields.${key}.type`));
+      if (declaredType !== "string" && declaredType !== "number" && declaredType !== "date") diagnostics.push(diag("unsupported_policy_value", `fields.${key}.type must be string, number, or date`, `fields.${key}.type`));
       const ownership = ownershipAt(raw.ownership, `fields.${key}.ownership`, diagnostics);
       const target = targetAt(raw.target, `fields.${key}.target`, diagnostics);
       if (target === "issue_type" && key !== "kind") diagnostics.push(diag("incompatible_policy_target", `fields.${key}.target issue_type is supported only for kind`, `fields.${key}.target`));
       if (target !== "project_field" && raw.derived === true) diagnostics.push(diag("incompatible_policy_target", `fields.${key} cannot combine target: ${target} with derived: true`, `fields.${key}.target`));
-      if (target !== "project_field" && declaredType === "number") diagnostics.push(diag("incompatible_policy_target", `fields.${key}.target ${target} currently requires type: string`, `fields.${key}.target`));
+      if (target !== "project_field" && declaredType !== "string") diagnostics.push(diag("incompatible_policy_target", `fields.${key}.target ${target} currently requires type: string`, `fields.${key}.target`));
+      if (declaredType === "date" && raw.values !== undefined && Object.keys(stringMap(raw.values, `fields.${key}.values`, [])).length > 0) diagnostics.push(diag("incompatible_policy_values", `fields.${key}.type date cannot declare single-select values`, `fields.${key}.values`));
       if (target === "issue_type" && (raw.values === undefined || Object.keys(stringMap(raw.values, `fields.${key}.values`, [])).length === 0)) diagnostics.push(diag("incompatible_policy_target", `fields.${key}.target issue_type requires an explicit values catalog`, `fields.${key}.values`));
       if (!supported.has(key) && ownership !== "extension") diagnostics.push(diag("unknown_policy_field", `fields.${key} must declare ownership: extension`, `fields.${key}`));
       const derived = booleanAt(raw.derived, `fields.${key}.derived`, diagnostics, false);
@@ -149,7 +156,7 @@ export function loadProjectPolicy(source: string): PolicyResult<ProjectPolicy> {
         projectField,
         target,
         required: booleanAt(raw.required, `fields.${key}.required`, diagnostics, false),
-        type: declaredType === "number" ? "number" : "string",
+        type: declaredType === "number" ? "number" : declaredType === "date" ? "date" : "string",
         derived,
         ...(ownership ? { ownership } : {}),
         values: stringMap(raw.values, `fields.${key}.values`, diagnostics),
@@ -254,8 +261,12 @@ export function buildDesiredProjectState(contract: IssueContract, policy: Projec
       if (rule.required) diagnostics.push(diag("missing_policy_required", `${logicalName} is required by repository policy`, `extensions.${logicalName}`));
       continue;
     }
-    if (typeof value !== "string" || rule.type !== "string") {
-      diagnostics.push(diag("policy_type_mismatch", `${logicalName} must be a string`, `extensions.${logicalName}`));
+    if (typeof value !== "string" || rule.type === "number") {
+      diagnostics.push(diag("policy_type_mismatch", `${logicalName} must be a ${rule.type === "date" ? "date" : "string"}`, `extensions.${logicalName}`));
+      continue;
+    }
+    if (rule.type === "date" && !isIsoDate(value)) {
+      diagnostics.push(diag("invalid_date_value", `${logicalName} must use a real ISO date in YYYY-MM-DD format`, `extensions.${logicalName}`));
       continue;
     }
     const mapped = Object.keys(rule.values).length === 0 ? value : rule.values[value];

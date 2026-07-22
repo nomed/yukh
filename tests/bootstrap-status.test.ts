@@ -11,6 +11,7 @@ fields:
   area: { project_field: Area, required: true, values: { contract: Contract, storage: Storage } }
   priority: { project_field: Priority, required: true, values: { P0: Critical, P1: High } }
   component: { project_field: Component, ownership: extension, required: true, values: { edge: Edge, hub: Hub, shared: Shared } }
+  start_date: { project_field: Start date, ownership: extension, type: date }
   estimate: { project_field: Estimate, type: number }
   status: { project_field: Status, derived: true }
 workflow:
@@ -33,7 +34,8 @@ describe("Project bootstrap planner", () => {
     expect(policy.ok).toBe(true);
     if (!policy.ok) return;
     const desired = desiredProjectSchema(policy.value);
-    expect(desired.fields.map(({ name }) => name)).toEqual(["Area", "Component", "Estimate", "Priority", "Status", "Type"]);
+    expect(desired.fields.map(({ name }) => name)).toEqual(["Area", "Component", "Estimate", "Priority", "Start date", "Status", "Type"]);
+    expect(desired.fields.find(({ name }) => name === "Start date")).toMatchObject({ dataType: "DATE", options: [] });
     expect(desired.fields.find(({ name }) => name === "Component")?.options.map(({ name }) => name)).toEqual(["Edge", "Hub", "Shared"]);
     expect(desired.fields.find(({ name }) => name === "Status")?.options.map(({ name }) => name)).toEqual(statuses);
   });
@@ -76,6 +78,7 @@ class Transport implements GraphqlTransport {
       custom("A", "Area", "SINGLE_SELECT", [opt("c", "Contract"), opt("s", "Storage")]),
       custom("C", "Component", "SINGLE_SELECT", [opt("e", "Edge"), opt("h", "Hub"), opt("s", "Shared")]),
       custom("P", "Priority", "SINGLE_SELECT", [opt("0", "Critical"), opt("1", "High")]),
+      custom("D", "Start date", "DATE"),
       custom("T", "Type", "SINGLE_SELECT", [opt("f", "Feature"), opt("t", "Task")]),
     ] : [
       { __typename: "ProjectV2SingleSelectField", id: "S", name: "Status", dataType: "SINGLE_SELECT", databaseId: null, options: statusNames.map((name) => opt(name, name)) },
@@ -96,7 +99,7 @@ describe("Project bootstrap runtime", () => {
   it("apply and second apply are idempotent", async () => {
     const first = await runProjectBootstrap({ policySource, projectNumber: 3, mode: "apply", applyEnabled: true, tokenAvailable: true }, new Transport());
     expect(first.ok).toBe(true);
-    expect(first.applied).toBe(6);
+    expect(first.applied).toBe(7);
     const second = await runProjectBootstrap({ policySource, projectNumber: 3, mode: "apply", applyEnabled: true, tokenAvailable: true }, new Transport(true));
     expect(second.ok).toBe(true);
     expect(second.applied).toBe(0);

@@ -20,6 +20,7 @@ Yukh derives supported custom fields from `.yukh/project.yaml`:
 
 - a policy field with mapped values becomes a `SINGLE_SELECT` Project field;
 - a policy field with `type: number` becomes a `NUMBER` Project field;
+- a policy field with `type: date` becomes a `DATE` Project field and accepts `YYYY-MM-DD` values;
 - derived fields, Status, and Iteration are not created;
 - string fields without an enum mapping are rejected because their safe Project type cannot be inferred.
 

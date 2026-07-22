@@ -78,6 +78,7 @@ interface RawFieldValue {
   number?: number;
   name?: string;
   title?: string;
+  date?: string;
   field?: { name?: string } | null;
 }
 
@@ -137,6 +138,7 @@ fragment ProjectData on ProjectV2 {
           __typename
           ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2FieldCommon { name } } }
           ... on ProjectV2ItemFieldNumberValue { number field { ... on ProjectV2FieldCommon { name } } }
+          ... on ProjectV2ItemFieldDateValue { date field { ... on ProjectV2FieldCommon { name } } }
           ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2FieldCommon { name } } }
           ... on ProjectV2ItemFieldIterationValue { title field { ... on ProjectV2FieldCommon { name } } }
         }
@@ -207,6 +209,7 @@ function normalizeFields(nodes: Array<RawField | null>): ProjectFieldDefinition[
 function fieldValue(value: RawFieldValue): string | number | undefined {
   if (value.__typename === "ProjectV2ItemFieldTextValue" && typeof value.text === "string") return value.text;
   if (value.__typename === "ProjectV2ItemFieldNumberValue" && typeof value.number === "number") return value.number;
+  if (value.__typename === "ProjectV2ItemFieldDateValue" && typeof value.date === "string") return value.date;
   if (value.__typename === "ProjectV2ItemFieldSingleSelectValue" && typeof value.name === "string") return value.name;
   if (value.__typename === "ProjectV2ItemFieldIterationValue" && typeof value.title === "string") return value.title;
   return undefined;

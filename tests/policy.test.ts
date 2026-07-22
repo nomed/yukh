@@ -41,6 +41,10 @@ fields:
     ownership: extension
     required: true
     values: { edge: Edge, hub: Hub, shared: Shared }
+  start_date:
+    project_field: Start date
+    ownership: extension
+    type: date
 milestones: { M0: M0 }
 defaults:
   execution: hybrid
@@ -171,6 +175,20 @@ describe("buildDesiredProjectState", () => {
     if (!loaded.ok) throw new Error("policy should load");
     expect(buildDesiredProjectState({ ...CONTRACT, extensions: {} }, loaded.value))
       .toMatchObject({ ok: false, diagnostics: [{ code: "missing_policy_required", path: "extensions.component" }] });
+  });
+
+  it("accepts real ISO date extensions and rejects malformed calendar dates", () => {
+    const loaded = loadProjectPolicy(POLICY);
+    if (!loaded.ok) throw new Error("policy should load");
+    expect(buildDesiredProjectState({ ...CONTRACT, extensions: { ...CONTRACT.extensions, start_date: "2026-07-22" } }, loaded.value))
+      .toMatchObject({ ok: true, value: { fields: { "Start date": "2026-07-22" } } });
+    expect(buildDesiredProjectState({ ...CONTRACT, extensions: { ...CONTRACT.extensions, start_date: "2026-02-30" } }, loaded.value))
+      .toMatchObject({ ok: false, diagnostics: [{ code: "invalid_date_value", path: "extensions.start_date" }] });
+  });
+
+  it("rejects select options on date fields", () => {
+    expect(loadProjectPolicy(POLICY.replace("type: date", "type: date\n    values: { now: Today }")))
+      .toMatchObject({ ok: false, diagnostics: expect.arrayContaining([expect.objectContaining({ code: "incompatible_policy_values", path: "fields.start_date.values" })]) });
   });
 
   it("rejects auto iteration when disabled", () => {
