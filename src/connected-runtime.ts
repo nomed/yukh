@@ -84,8 +84,10 @@ query ResolveIssue($owner: String!, $repository: String!, $number: Int!) {
     issueFields(first: 100) {
       nodes {
         __typename
-        ... on IssueFieldCommon { id name dataType }
+        ... on IssueFieldDate { id name dataType }
+        ... on IssueFieldNumber { id name dataType }
         ... on IssueFieldSingleSelect { id name dataType options { id name } }
+        ... on IssueFieldText { id name dataType }
       }
     }
   }
