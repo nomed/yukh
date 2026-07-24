@@ -76,6 +76,47 @@ describe("complete Project reconciliation", () => {
     expect(result.plan.operations[5]).toMatchObject({ desiredValue: "Blocked" });
   });
 
+  it("derives ready and blocked status from localized workflow labels", () => {
+    const localizedPolicy: ProjectPolicy = {
+      ...policy,
+      workflow: { ...policy.workflow, ready: "Pronto", blocked: "Bloccato" },
+    };
+    const state = discovered();
+    const status = state.fields.find(({ name }) => name === "Status")!;
+    status.options = [
+      { id: "OS", name: "Bloccato" },
+      { id: "OR", name: "Pronto" },
+    ];
+
+    const blocked = planCompleteProjectReconciliation({
+      desired,
+      policy: localizedPolicy,
+      discovered: state,
+      issueContentId: "ISSUE_61",
+      now: "2026-07-18",
+    });
+    expect(blocked).toMatchObject({
+      ok: true,
+      plan: { operations: expect.arrayContaining([expect.objectContaining({ fieldName: "Status", desiredValue: "Bloccato" })]) },
+    });
+
+    const readyDesired: DesiredProjectState = {
+      ...desired,
+      relationships: { ...desired.relationships, dependsOn: [] },
+    };
+    const ready = planCompleteProjectReconciliation({
+      desired: readyDesired,
+      policy: localizedPolicy,
+      discovered: state,
+      issueContentId: "ISSUE_61",
+      now: "2026-07-18",
+    });
+    expect(ready).toMatchObject({
+      ok: true,
+      plan: { operations: expect.arrayContaining([expect.objectContaining({ fieldName: "Status", desiredValue: "Pronto" })]) },
+    });
+  });
+
   it("produces a no-op when all managed values match", () => {
     const state = discovered({ present: true, id: "ITEM_61", values: { Component: "Edge", Estimate: 2, Iteration: "Iteration 2", Priority: "P0", Status: "Blocked" } });
     const result = planCompleteProjectReconciliation({ desired, policy, discovered: state, issueContentId: "ISSUE_61", now: "2026-07-18" });

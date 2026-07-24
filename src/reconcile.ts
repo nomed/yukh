@@ -62,9 +62,9 @@ function resolveAutomaticIteration(field: ProjectFieldDefinition, now: string): 
   return candidates[0]?.title;
 }
 
-function deriveStatus(desired: DesiredProjectState): string {
-  if (desired.relationships.dependsOn.length > 0) return "Blocked";
-  return "Ready";
+function deriveStatus(desired: DesiredProjectState, policy: ProjectPolicy): string {
+  if (desired.relationships.dependsOn.length > 0) return policy.workflow.blocked;
+  return policy.workflow.ready;
 }
 
 function desiredManagedValues(
@@ -87,7 +87,7 @@ function desiredManagedValues(
   }
 
   const statusRule = input.policy.fields.status;
-  if (statusRule?.derived) values[statusRule.projectField] = deriveStatus(input.desired);
+  if (statusRule?.derived) values[statusRule.projectField] = deriveStatus(input.desired, input.policy);
   return Object.fromEntries(Object.entries(values).sort(([a], [b]) => a.localeCompare(b)));
 }
 
