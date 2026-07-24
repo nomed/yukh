@@ -35,6 +35,8 @@ Yukh currently supports:
 - planning and applying parent/sub-issue and dependency relationships;
 - dry-run diagnostics before mutation;
 - controlled apply mode with a dedicated Project-capable token;
+- idempotent schema bootstrap for custom single-select, text, number, and date fields;
+- derived Project status values taken from each repository workflow policy;
 - idempotent retries, including a verified second apply with zero operations;
 - versioned GitHub Action releases generated through release-please.
 
