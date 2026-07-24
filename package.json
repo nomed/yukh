@@ -1,6 +1,6 @@
 {
   "name": "yukh",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "private": true,
   "type": "module",
   "description": "Policy-driven GitHub Project reconciliation for agentic repositories",
