@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/nomed/yukh/compare/v0.8.0...v0.9.0) (2026-07-24)
+
+
+### Features
+
+* supporta status localizzati e bootstrap TEXT ([#92](https://github.com/nomed/yukh/issues/92)) ([0f61dc4](https://github.com/nomed/yukh/commit/0f61dc4ae0e9c6d4e4a22e084bfbc395f2ef6d4c))
+
 ## [0.8.0](https://github.com/nomed/yukh/compare/v0.7.0...v0.8.0) (2026-07-22)
 
 
